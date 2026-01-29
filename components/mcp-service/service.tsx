@@ -15,6 +15,9 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
     const [tab, setTab] = useState<'connection' | 'tools' | 'resources' | 'prompts' | 'notifications'>('connection');
     const [draftName, setDraftName] = useState('');
     const [draftUrl, setDraftUrl] = useState('');
+    const [draftApiKey, setDraftApiKey] = useState('');
+    const [draftConfig, setDraftConfig] = useState('');
+    const [draftHeaders, setDraftHeaders] = useState('');
     const [transport, setTransport] = useState<'streamable-http' | 'sse'>('streamable-http');
     const [error, setError] = useState<string | null>(null);
 
@@ -35,6 +38,9 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
         setTab('connection');
         setDraftName('');
         setDraftUrl('');
+        setDraftApiKey('');
+        setDraftConfig('');
+        setDraftHeaders('');
         setTransport('streamable-http');
         setError(null);
         onOpenChange(false);
@@ -45,6 +51,9 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
         controller.setActiveUrl(nextUrl);
         setDraftName(server.name);
         setDraftUrl(server.url);
+        setDraftApiKey(server.apiKey ?? '');
+        setDraftConfig(server.config ? JSON.stringify(server.config, null, 2) : '');
+        setDraftHeaders(server.headers ? JSON.stringify(server.headers, null, 2) : '');
         setTransport(server.transport ?? 'streamable-http');
         setError(null);
     };
@@ -53,13 +62,53 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
         controller.setActiveUrl(null);
         setDraftName('');
         setDraftUrl('');
+        setDraftApiKey('');
+        setDraftConfig('');
+        setDraftHeaders('');
         setTransport('streamable-http');
         setError(null);
     };
 
     const save = async () => {
         setError(null);
-        const next: McpServer = { name: draftName.trim(), url: draftUrl.trim(), transport };
+        let config: unknown = undefined;
+        let headers: Record<string, string> | undefined = undefined;
+        const configText = draftConfig.trim();
+        const headersText = draftHeaders.trim();
+        if (configText) {
+            try {
+                config = JSON.parse(configText);
+            } catch {
+                setError('Config must be valid JSON');
+                return;
+            }
+        }
+        if (headersText) {
+            try {
+                const parsed = JSON.parse(headersText) as unknown;
+                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                    setError('Headers must be a JSON object');
+                    return;
+                }
+                headers = Object.fromEntries(
+                    Object.entries(parsed as Record<string, unknown>)
+                        .filter(([key, value]) => typeof value === 'string' && key.trim() && value.trim())
+                        .map(([key, value]) => [key.trim(), (value as string).trim()])
+                );
+            } catch {
+                setError('Headers must be valid JSON');
+                return;
+            }
+        }
+
+        const next: McpServer = {
+            name: draftName.trim(),
+            url: draftUrl.trim(),
+            transport,
+            apiKey: draftApiKey.trim() || undefined,
+            config,
+            headers,
+        };
         if (!next.name) {
             setError('Server name is required');
             return;
@@ -88,6 +137,9 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
             await controller.removeServer(activeServer.url);
             setDraftName('');
             setDraftUrl('');
+            setDraftApiKey('');
+            setDraftConfig('');
+            setDraftHeaders('');
             setTransport('streamable-http');
             setTab('connection');
         } catch (e) {
@@ -221,6 +273,42 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
                             />
                         </div>
                         <div className="mt-1 text-xs text-slate-400">URL must be unique.</div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div>
+                            <div className="text-xs font-medium text-slate-600">Smithery API key</div>
+                            <input
+                                value={draftApiKey}
+                                onChange={(e) => setDraftApiKey(e.target.value)}
+                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400"
+                                placeholder="Optional"
+                                type="password"
+                                autoComplete="off"
+                            />
+                            <div className="mt-1 text-xs text-slate-400">Used when Server URL is a Smithery server/page.</div>
+                        </div>
+                        <div>
+                            <div className="text-xs font-medium text-slate-600">Config (JSON)</div>
+                            <textarea
+                                value={draftConfig}
+                                onChange={(e) => setDraftConfig(e.target.value)}
+                                className="mt-1 h-[90px] w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400"
+                                placeholder="{}"
+                            />
+                            <div className="mt-1 text-xs text-slate-400">Optional. Sent as config to Smithery.</div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div className="text-xs font-medium text-slate-600">Headers (JSON)</div>
+                        <textarea
+                            value={draftHeaders}
+                            onChange={(e) => setDraftHeaders(e.target.value)}
+                            className="mt-1 h-[90px] w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400"
+                            placeholder='{"Authorization":"Bearer ..."}'
+                        />
+                        <div className="mt-1 text-xs text-slate-400">Optional. Applied to Streamable HTTP and fallback requests.</div>
                     </div>
 
                     {error ? (

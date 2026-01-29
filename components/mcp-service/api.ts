@@ -37,6 +37,9 @@ export async function updateServer(
         nextUrl?: string;
         name?: string;
         transport?: McpServer["transport"];
+        apiKey?: string;
+        config?: unknown;
+        headers?: Record<string, string>;
     },
 ): Promise<McpServer> {
     return request<McpServer>("/api/mcp/servers", {

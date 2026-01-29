@@ -92,6 +92,9 @@ export function useMcpController(): McpController {
                 nextUrl,
                 name: next.name,
                 transport: next.transport,
+                apiKey: next.apiKey,
+                config: next.config,
+                headers: next.headers,
             });
             const normalized = { ...updated, url: normalizeUrl(updated.url) };
 
@@ -246,4 +249,3 @@ export function useMcpController(): McpController {
         clearSelection,
     };
 }
-

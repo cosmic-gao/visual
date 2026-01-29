@@ -2,6 +2,9 @@ export interface McpServer {
     name: string;
     url: string;
     transport?: 'streamable-http' | 'sse';
+    apiKey?: string;
+    config?: unknown;
+    headers?: Record<string, string>;
 }
 
 export interface McpTool {
