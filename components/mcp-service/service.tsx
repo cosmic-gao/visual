@@ -16,8 +16,6 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
     const [draftName, setDraftName] = useState('');
     const [draftUrl, setDraftUrl] = useState('');
     const [draftApiKey, setDraftApiKey] = useState('');
-    const [draftConfig, setDraftConfig] = useState('');
-    const [draftHeaders, setDraftHeaders] = useState('');
     const [transport, setTransport] = useState<'streamable-http' | 'sse'>('streamable-http');
     const [error, setError] = useState<string | null>(null);
 
@@ -39,8 +37,6 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
         setDraftName('');
         setDraftUrl('');
         setDraftApiKey('');
-        setDraftConfig('');
-        setDraftHeaders('');
         setTransport('streamable-http');
         setError(null);
         onOpenChange(false);
@@ -52,62 +48,27 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
         setDraftName(server.name);
         setDraftUrl(server.url);
         setDraftApiKey(server.apiKey ?? '');
-        setDraftConfig(server.config ? JSON.stringify(server.config, null, 2) : '');
-        setDraftHeaders(server.headers ? JSON.stringify(server.headers, null, 2) : '');
         setTransport(server.transport ?? 'streamable-http');
         setError(null);
     };
 
     const newServer = () => {
         controller.setActiveUrl(null);
-        setDraftName('');
-        setDraftUrl('');
+        setDraftName('Playwright MCP');
+        setDraftUrl('https://server.smithery.ai/@anthropics/mcp-server');
         setDraftApiKey('');
-        setDraftConfig('');
-        setDraftHeaders('');
         setTransport('streamable-http');
         setError(null);
     };
 
     const save = async () => {
         setError(null);
-        let config: unknown = undefined;
-        let headers: Record<string, string> | undefined = undefined;
-        const configText = draftConfig.trim();
-        const headersText = draftHeaders.trim();
-        if (configText) {
-            try {
-                config = JSON.parse(configText);
-            } catch {
-                setError('Config must be valid JSON');
-                return;
-            }
-        }
-        if (headersText) {
-            try {
-                const parsed = JSON.parse(headersText) as unknown;
-                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-                    setError('Headers must be a JSON object');
-                    return;
-                }
-                headers = Object.fromEntries(
-                    Object.entries(parsed as Record<string, unknown>)
-                        .filter(([key, value]) => typeof value === 'string' && key.trim() && value.trim())
-                        .map(([key, value]) => [key.trim(), (value as string).trim()])
-                );
-            } catch {
-                setError('Headers must be valid JSON');
-                return;
-            }
-        }
 
         const next: McpServer = {
             name: draftName.trim(),
             url: draftUrl.trim(),
             transport,
             apiKey: draftApiKey.trim() || undefined,
-            config,
-            headers,
         };
         if (!next.name) {
             setError('Server name is required');
@@ -138,8 +99,6 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
             setDraftName('');
             setDraftUrl('');
             setDraftApiKey('');
-            setDraftConfig('');
-            setDraftHeaders('');
             setTransport('streamable-http');
             setTab('connection');
         } catch (e) {
@@ -165,8 +124,7 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
     };
 
     const tabClass = (value: typeof tab) =>
-        `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
-            tab === value ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
+        `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${tab === value ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
         }`;
 
     const connectView = (
@@ -198,11 +156,10 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
                                     <button
                                         key={url}
                                         type="button"
-                                        className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
-                                            selected
-                                                ? 'border-slate-900 bg-slate-900 text-white'
-                                                : 'border-slate-200 bg-white hover:bg-slate-50'
-                                        }`}
+                                        className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${selected
+                                            ? 'border-slate-900 bg-slate-900 text-white'
+                                            : 'border-slate-200 bg-white hover:bg-slate-50'
+                                            }`}
                                         onClick={() => selectServer(server)}
                                     >
                                         <div className="flex items-start justify-between gap-3">
@@ -256,7 +213,7 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
                                 value={draftName}
                                 onChange={(e) => setDraftName(e.target.value)}
                                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400"
-                                placeholder="Agent Builder"
+                                placeholder="Playwright MCP"
                             />
                         </div>
                     </div>
@@ -269,46 +226,23 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
                                 value={draftUrl}
                                 onChange={(e) => setDraftUrl(e.target.value)}
                                 className="w-full bg-transparent text-sm text-slate-800 outline-none"
-                                placeholder="https://example.com"
+                                placeholder="https://server.smithery.ai/@anthropics/mcp-server"
                             />
                         </div>
-                        <div className="mt-1 text-xs text-slate-400">URL must be unique.</div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <div>
-                            <div className="text-xs font-medium text-slate-600">Smithery API key</div>
-                            <input
-                                value={draftApiKey}
-                                onChange={(e) => setDraftApiKey(e.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400"
-                                placeholder="Optional"
-                                type="password"
-                                autoComplete="off"
-                            />
-                            <div className="mt-1 text-xs text-slate-400">Used when Server URL is a Smithery server/page.</div>
-                        </div>
-                        <div>
-                            <div className="text-xs font-medium text-slate-600">Config (JSON)</div>
-                            <textarea
-                                value={draftConfig}
-                                onChange={(e) => setDraftConfig(e.target.value)}
-                                className="mt-1 h-[90px] w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400"
-                                placeholder="{}"
-                            />
-                            <div className="mt-1 text-xs text-slate-400">Optional. Sent as config to Smithery.</div>
-                        </div>
+                        <div className="mt-1 text-xs text-slate-400">Enter MCP server URL (Smithery, remote, or local)</div>
                     </div>
 
                     <div>
-                        <div className="text-xs font-medium text-slate-600">Headers (JSON)</div>
-                        <textarea
-                            value={draftHeaders}
-                            onChange={(e) => setDraftHeaders(e.target.value)}
-                            className="mt-1 h-[90px] w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400"
-                            placeholder='{"Authorization":"Bearer ..."}'
+                        <div className="text-xs font-medium text-slate-600">API Key</div>
+                        <input
+                            value={draftApiKey}
+                            onChange={(e) => setDraftApiKey(e.target.value)}
+                            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400"
+                            placeholder="Optional"
+                            type="password"
+                            autoComplete="off"
                         />
-                        <div className="mt-1 text-xs text-slate-400">Optional. Applied to Streamable HTTP and fallback requests.</div>
+                        <div className="mt-1 text-xs text-slate-400">Optional. Sent as Authorization Bearer token in headers.</div>
                     </div>
 
                     {error ? (
@@ -375,9 +309,8 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
                             <button
                                 key={url}
                                 type="button"
-                                className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
-                                    selected ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white hover:bg-slate-50'
-                                }`}
+                                className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${selected ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white hover:bg-slate-50'
+                                    }`}
                                 onClick={() => selectServer(server)}
                             >
                                 <div className="truncate text-sm font-semibold">{server.name}</div>
@@ -454,11 +387,10 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
                         {controller.logs.map((item, idx) => (
                             <div
                                 key={`${item.ts}-${idx}`}
-                                className={`rounded-lg border px-3 py-2 text-sm ${
-                                    item.level === 'error'
-                                        ? 'border-rose-200 bg-rose-50 text-rose-700'
-                                        : 'border-slate-200 bg-white text-slate-700'
-                                }`}
+                                className={`rounded-lg border px-3 py-2 text-sm ${item.level === 'error'
+                                    ? 'border-rose-200 bg-rose-50 text-rose-700'
+                                    : 'border-slate-200 bg-white text-slate-700'
+                                    }`}
                             >
                                 <div className="flex items-center justify-between gap-3">
                                     <div className="truncate font-medium">{item.message}</div>

@@ -2,9 +2,8 @@ export interface McpServer {
     name: string;
     url: string;
     transport?: 'streamable-http' | 'sse';
+    /** API key for authentication (sent as Bearer token) */
     apiKey?: string;
-    config?: unknown;
-    headers?: Record<string, string>;
 }
 
 export interface McpTool {

@@ -43,6 +43,12 @@ export interface AgentNodeData extends BaseNodeData {
 export interface ToolboxNodeData extends BaseNodeData {
     tools: ToolItem[];
     mcpEnabled?: boolean;
+    /** Loading state for MCP tools */
+    isLoading?: boolean;
+    /** Error message from MCP tool fetch */
+    error?: string;
+    /** List of connected MCP server URLs */
+    mcpServers?: string[];
 }
 
 export interface ToolItem {
@@ -51,6 +57,14 @@ export interface ToolItem {
     icon?: string;
     status?: 'active' | 'review' | 'draft' | 'missing_key';
     source?: string;
+    /** MCP server display name */
+    mcp_server_name?: string;
+    /** MCP server URL */
+    mcp_server_url?: string;
+    /** Tool description from MCP */
+    description?: string;
+    /** JSON Schema for tool input parameters */
+    input_schema?: unknown;
 }
 
 /**

@@ -38,8 +38,6 @@ export async function updateServer(
         name?: string;
         transport?: McpServer["transport"];
         apiKey?: string;
-        config?: unknown;
-        headers?: Record<string, string>;
     },
 ): Promise<McpServer> {
     return request<McpServer>("/api/mcp/servers", {
@@ -56,13 +54,31 @@ export async function deleteServer(url: string): Promise<{ ok: boolean }> {
 }
 
 export async function listTools(
-    url: string,
-    name?: string,
+    server: Pick<McpServer, 'url' | 'name' | 'apiKey'>,
 ): Promise<McpTool[]> {
-    const encodedUrl = encodeURIComponent(url);
-    const encodedName = name ? `&name=${encodeURIComponent(name)}` : "";
     const result = await request<{ tools: McpTool[] }>(
-        `/api/mcp/tools?url=${encodedUrl}${encodedName}`,
+        "/api/mcp/tools",
+        {
+            method: "POST",
+            body: JSON.stringify({
+                url: server.url,
+                name: server.name,
+                apiKey: server.apiKey,
+            }),
+        }
     );
     return result.tools ?? [];
+}
+
+/**
+ * Batch query tools from all configured MCP servers
+ */
+export interface ListAllToolsResult {
+    tools: McpTool[];
+    errors?: { url: string; message: string }[];
+    serverCount: number;
+}
+
+export async function listAllTools(): Promise<ListAllToolsResult> {
+    return request<ListAllToolsResult>("/api/mcp/tools/all");
 }

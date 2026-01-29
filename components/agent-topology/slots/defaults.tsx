@@ -190,13 +190,30 @@ export const defaultToolboxItem: SlotFunction<ToolItem> = ({ data }) => {
         return status;
     };
 
+    // Check if this is an MCP tool
+    const isMcpTool = Boolean(data.mcp_server_name || data.mcp_server_url);
+    const displaySource = data.source || data.mcp_server_name;
+
     return (
-        <div className="group flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-slate-50">
-            <ItemIcon className="w-4 h-4 text-slate-400" />
+        <div
+            className="group flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-slate-50"
+            title={data.description || undefined}
+        >
+            <ItemIcon className="w-4 h-4 text-slate-400 shrink-0" />
             <div className="flex-1 min-w-0">
-                <div className="text-sm text-slate-800 truncate">{data.name}</div>
-                {data.source && (
-                    <div className="text-xs text-slate-500">{data.source}</div>
+                <div className="flex items-center gap-2">
+                    <span className="text-sm text-slate-800 truncate">{data.name}</span>
+                    {isMcpTool && (
+                        <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">
+                            MCP
+                        </span>
+                    )}
+                </div>
+                {displaySource && (
+                    <div className="text-xs text-slate-500 truncate">{displaySource}</div>
+                )}
+                {data.description && (
+                    <div className="text-xs text-slate-400 truncate mt-0.5">{data.description}</div>
                 )}
             </div>
             {data.status && (
@@ -209,7 +226,7 @@ export const defaultToolboxItem: SlotFunction<ToolItem> = ({ data }) => {
                     )}
                 </span>
             )}
-            <div className="flex gap-1 opacity-0 group-hover:opacity-100">
+            <div className="flex gap-1 opacity-0 group-hover:opacity-100 shrink-0">
                 <button className={ghostIconButtonClassName}>
                     <Copy className="w-4 h-4" />
                 </button>

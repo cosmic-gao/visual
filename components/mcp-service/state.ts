@@ -93,8 +93,6 @@ export function useMcpController(): McpController {
                 name: next.name,
                 transport: next.transport,
                 apiKey: next.apiKey,
-                config: next.config,
-                headers: next.headers,
             });
             const normalized = { ...updated, url: normalizeUrl(updated.url) };
 
@@ -182,7 +180,7 @@ export function useMcpController(): McpController {
             setToolErrorByUrl((map) => ({ ...map, [url]: undefined }));
             log('info', 'Fetching tools/list', url);
             try {
-                const tools = await api.listTools(url, server.name);
+                const tools = await api.listTools(server);
                 setToolsByUrl((cache) => ({ ...cache, [url]: tools }));
                 log('info', `Tools loaded: ${tools.length}`, url);
                 return tools;

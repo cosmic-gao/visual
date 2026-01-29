@@ -25,11 +25,7 @@ interface McpTool {
 
 const serversByUrl = new Map<string, McpServer>();
 
-serversByUrl.set("https://server.smithery.ai/enriquedlh97/playwright-mcp", {
-  name: "Playwright MCP",
-  url: "https://server.smithery.ai/enriquedlh97/playwright-mcp",
-  transport: "streamable-http",
-});
+// No pre-configured servers - users add them through the UI with their own API keys
 
 function readOrigin(params: HandlerParams) {
   try {
@@ -78,13 +74,9 @@ function isHttpUrl(url: string) {
   }
 }
 
-function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-    },
-  });
+function json(data: unknown, _status = 200) {
+  // mspbots runtime expects plain data objects, not Response objects
+  return data;
 }
 
 function readString(input: unknown) {
@@ -119,6 +111,10 @@ function createEndpoint(server: McpServer) {
     }
     if (server.config !== undefined) {
       base.searchParams.set("config", JSON.stringify(server.config));
+    }
+    // Smithery requires API key as query parameter
+    if (server.apiKey) {
+      base.searchParams.set("api_key", server.apiKey);
     }
   }
   return base;
@@ -180,6 +176,13 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
 async function listToolsFromServer(server: McpServer): Promise<McpTool[]> {
   const url = createEndpoint(server);
   const requestHeaders = createRequestHeaders(server);
+
+  console.log("[DEBUG] listToolsFromServer", {
+    inputUrl: server.url,
+    endpointUrl: url.toString(),
+    hasApiKey: !!server.apiKey,
+    headers: requestHeaders ? Object.keys(requestHeaders) : [],
+  });
 
   const listViaSdk = async () => {
     const client = new Client({ name: "visual-agent-mcp-proxy", version: "0.0.0" });
@@ -401,11 +404,12 @@ const routes = {
     return json({ ok: true });
   },
 
-  "GET /api/mcp/tools"(params: HandlerParams) {
+  "POST /api/mcp/tools"(params: HandlerParams) {
     return (async () => {
       ensureTestServer(params);
-      const query = (params as any).query ?? {};
-      const url = normalizeUrl(readString(query.url));
+      const body = (params as any).body ?? {};
+      // Use normalizeServerUrl to ensure consistent key lookup
+      const url = normalizeServerUrl(readString(body.url));
       if (!url) {
         return json({ message: "url is required" }, 400);
       }
@@ -413,7 +417,19 @@ const routes = {
         return json({ message: "Server URL must be http/https" }, 400);
       }
 
-      const server = serversByUrl.get(url) ?? { name: readString(query.name).trim() || "MCP Server", url };
+      const savedServer = serversByUrl.get(url);
+      // Use apiKey from request body first, fallback to saved server config
+      const apiKey = readString(body.apiKey).trim() || savedServer?.apiKey;
+
+      const server: McpServer = {
+        name: readString(body.name).trim() || savedServer?.name || "MCP Server",
+        url,
+        transport: savedServer?.transport,
+        apiKey,
+        config: savedServer?.config,
+        headers: savedServer?.headers,
+      };
+
       try {
         const tools = await listToolsFromServer(server);
         return json({ tools });
@@ -421,6 +437,42 @@ const routes = {
         const message = e instanceof Error ? e.message : "Request failed";
         return json({ message, url }, 502);
       }
+    })();
+  },
+
+  /**
+   * Batch query tools from all configured MCP servers
+   * Returns aggregated tools from all servers, with per-server error handling
+   */
+  "GET /api/mcp/tools/all"(params: HandlerParams) {
+    return (async () => {
+      ensureTestServer(params);
+      const allTools: McpTool[] = [];
+      const errors: { url: string; message: string }[] = [];
+
+      // Query all servers in parallel
+      const results = await Promise.allSettled(
+        Array.from(serversByUrl.values()).map(async (server) => {
+          const tools = await listToolsFromServer(server);
+          return { server, tools };
+        })
+      );
+
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          allTools.push(...result.value.tools);
+        } else {
+          // Extract server URL from error context if available
+          const message = result.reason instanceof Error ? result.reason.message : "Request failed";
+          errors.push({ url: "unknown", message });
+        }
+      }
+
+      return json({
+        tools: allTools,
+        errors: errors.length > 0 ? errors : undefined,
+        serverCount: serversByUrl.size,
+      });
     })();
   },
 
