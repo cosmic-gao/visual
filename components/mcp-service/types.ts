@@ -1,6 +1,7 @@
 export interface McpServer {
     name: string;
     url: string;
+    transport?: 'streamable-http' | 'sse';
 }
 
 export interface McpTool {
@@ -13,6 +14,6 @@ export interface McpTool {
 }
 
 export interface McpConfig {
-    tools: McpTool[];
+    tools: Pick<McpTool, 'name' | 'display_name' | 'mcp_server_name' | 'mcp_server_url'>[];
     interrupt_config: Record<string, boolean>;
 }

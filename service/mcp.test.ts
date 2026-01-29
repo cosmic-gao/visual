@@ -1,4 +1,4 @@
-import { createConfig, createToolKey, normalizeUrl } from '../components/agent-topology/mcp-service/export.ts';
+import { createConfig, createToolKey, normalizeUrl } from '../components/mcp-service/export.ts';
 
 Deno.test('normalizeUrl trims trailing slash', () => {
     if (normalizeUrl('https://example.com/') !== 'https://example.com') {

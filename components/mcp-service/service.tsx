@@ -3,32 +3,29 @@ import { createPortal } from 'react-dom';
 import { AlertCircle, Boxes, Cable, CheckCircle2, Database, FileText, Loader2, Plus, RefreshCw, Terminal, X } from 'lucide-react';
 import type { McpServer } from './types';
 import { normalizeUrl } from './export';
-import type { McpState } from './state';
+import type { McpController } from './state';
 
 interface McpServiceDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    state: McpState;
+    controller: McpController;
 }
 
-export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialogProps) {
+export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceDialogProps) {
     const [tab, setTab] = useState<'connection' | 'tools' | 'resources' | 'prompts' | 'notifications'>('connection');
-    const activeServer = useMemo(() => {
-        if (!state.activeUrl) return null;
-        const currentUrl = normalizeUrl(state.activeUrl);
-        return state.servers.find((server) => normalizeUrl(server.url) === currentUrl) ?? null;
-    }, [state.activeUrl, state.servers]);
-
     const [draftName, setDraftName] = useState('');
     const [draftUrl, setDraftUrl] = useState('');
-    const [transport, setTransport] = useState<'http'>('http');
+    const [transport, setTransport] = useState<'streamable-http' | 'sse'>('streamable-http');
     const [error, setError] = useState<string | null>(null);
 
-    const activeUrl = state.activeUrl ? normalizeUrl(state.activeUrl) : '';
-    const activeTools = activeUrl ? state.toolsByUrl[activeUrl] ?? [] : [];
-    const activeLoading = activeUrl ? state.toolLoadingByUrl[activeUrl] : false;
-    const activeError = activeUrl ? state.toolErrorByUrl[activeUrl] : undefined;
-    const logs = state.logs;
+    const activeUrl = controller.activeUrl ? normalizeUrl(controller.activeUrl) : '';
+    const activeServer = useMemo(() => {
+        if (!activeUrl) return null;
+        return controller.servers.find((server) => normalizeUrl(server.url) === activeUrl) ?? null;
+    }, [activeUrl, controller.servers]);
+    const activeTools = activeUrl ? controller.toolsByUrl[activeUrl] ?? [] : [];
+    const activeLoading = activeUrl ? controller.toolLoadingByUrl[activeUrl] : false;
+    const activeError = activeUrl ? controller.toolErrorByUrl[activeUrl] : undefined;
 
     if (!open) {
         return null;
@@ -38,28 +35,31 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
         setTab('connection');
         setDraftName('');
         setDraftUrl('');
+        setTransport('streamable-http');
         setError(null);
         onOpenChange(false);
     };
 
     const selectServer = (server: McpServer) => {
         const nextUrl = normalizeUrl(server.url);
-        state.setActiveUrl(nextUrl);
+        controller.setActiveUrl(nextUrl);
         setDraftName(server.name);
         setDraftUrl(server.url);
+        setTransport(server.transport ?? 'streamable-http');
         setError(null);
     };
 
     const newServer = () => {
-        state.setActiveUrl(null);
+        controller.setActiveUrl(null);
         setDraftName('');
         setDraftUrl('');
+        setTransport('streamable-http');
         setError(null);
     };
 
     const save = async () => {
         setError(null);
-        const next: McpServer = { name: draftName.trim(), url: draftUrl.trim() };
+        const next: McpServer = { name: draftName.trim(), url: draftUrl.trim(), transport };
         if (!next.name) {
             setError('Server name is required');
             return;
@@ -71,12 +71,9 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
 
         try {
             if (activeServer) {
-                state.updateServer(activeServer.url, next);
+                await controller.updateServer(activeServer.url, next);
             } else {
-                state.addServer(next);
-            }
-            if (tab !== 'connection') {
-                setTab('connection');
+                await controller.addServer(next);
             }
         } catch (e) {
             const message = e instanceof Error ? e.message : 'Save failed';
@@ -84,12 +81,19 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
         }
     };
 
-    const removeActive = () => {
+    const removeActive = async () => {
         if (!activeServer) return;
-        state.removeServer(activeServer.url);
-        setDraftName('');
-        setDraftUrl('');
-        setTab('connection');
+        setError(null);
+        try {
+            await controller.removeServer(activeServer.url);
+            setDraftName('');
+            setDraftUrl('');
+            setTransport('streamable-http');
+            setTab('connection');
+        } catch (e) {
+            const message = e instanceof Error ? e.message : 'Delete failed';
+            setError(message);
+        }
     };
 
     const refreshTools = async () => {
@@ -99,11 +103,12 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
             return;
         }
         try {
-            await state.fetchTools(activeServer);
+            await controller.fetchTools(activeServer);
             setTab('tools');
         } catch (e) {
             const message = e instanceof Error ? e.message : 'Request failed';
             setError(message);
+            setTab('notifications');
         }
     };
 
@@ -118,6 +123,7 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
                 <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
                     <div className="text-xs font-semibold text-slate-600">Servers</div>
                     <button
+                        type="button"
                         className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
                         onClick={newServer}
                     >
@@ -126,19 +132,20 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
                     </button>
                 </div>
                 <div className="max-h-[520px] overflow-auto p-2">
-                    {state.servers.length === 0 ? (
+                    {controller.servers.length === 0 ? (
                         <div className="p-6 text-center text-sm text-slate-400">No servers</div>
                     ) : (
                         <div className="space-y-2">
-                            {state.servers.map((server) => {
+                            {controller.servers.map((server) => {
                                 const url = normalizeUrl(server.url);
                                 const selected = url === activeUrl;
-                                const count = (state.toolsByUrl[url] ?? []).length;
-                                const loading = state.toolLoadingByUrl[url];
-                                const err = state.toolErrorByUrl[url];
+                                const count = (controller.toolsByUrl[url] ?? []).length;
+                                const loading = controller.toolLoadingByUrl[url];
+                                const err = controller.toolErrorByUrl[url];
                                 return (
                                     <button
                                         key={url}
+                                        type="button"
                                         className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
                                             selected
                                                 ? 'border-slate-900 bg-slate-900 text-white'
@@ -151,7 +158,7 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
                                                 <div className="truncate text-sm font-semibold">{server.name}</div>
                                                 <div className={`truncate text-xs ${selected ? 'text-slate-200' : 'text-slate-500'}`}>{url}</div>
                                                 <div className={`mt-2 text-xs ${selected ? 'text-slate-200' : 'text-slate-500'}`}>
-                                                    {loading ? 'Loading…' : err ? `Error` : `${count} tools`}
+                                                    {loading ? 'Loading…' : err ? 'Error' : `${count} tools`}
                                                 </div>
                                             </div>
                                             {loading ? (
@@ -186,7 +193,8 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
                                     onChange={(e) => setTransport(e.target.value as any)}
                                     className="w-full bg-transparent text-sm text-slate-800 outline-none"
                                 >
-                                    <option value="http">HTTP</option>
+                                    <option value="streamable-http">Streamable HTTP</option>
+                                    <option value="sse">SSE</option>
                                 </select>
                             </div>
                         </div>
@@ -212,7 +220,7 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
                                 placeholder="https://example.com"
                             />
                         </div>
-                        <div className="mt-1 text-xs text-slate-400">URL must be unique. tools/list is mocked in this phase.</div>
+                        <div className="mt-1 text-xs text-slate-400">URL must be unique.</div>
                     </div>
 
                     {error ? (
@@ -230,6 +238,7 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
                     <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
                         {activeServer ? (
                             <button
+                                type="button"
                                 className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                                 onClick={removeActive}
                             >
@@ -237,18 +246,21 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
                             </button>
                         ) : null}
                         <button
+                            type="button"
                             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                             onClick={close}
                         >
                             Close
                         </button>
                         <button
+                            type="button"
                             className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
                             onClick={save}
                         >
                             Save
                         </button>
                         <button
+                            type="button"
                             className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
                             onClick={refreshTools}
                         >
@@ -264,23 +276,17 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
     const toolsView = (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[320px_1fr]">
             <div className="rounded-xl border border-slate-200 bg-white">
-                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                <div className="border-b border-slate-200 px-4 py-3">
                     <div className="text-xs font-semibold text-slate-600">Servers</div>
-                    <button
-                        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                        onClick={() => setTab('connection')}
-                    >
-                        <Plus className="h-3.5 w-3.5" />
-                        Manage
-                    </button>
                 </div>
                 <div className="max-h-[520px] overflow-auto p-2">
-                    {state.servers.map((server) => {
+                    {controller.servers.map((server) => {
                         const url = normalizeUrl(server.url);
                         const selected = url === activeUrl;
                         return (
                             <button
                                 key={url}
+                                type="button"
                                 className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
                                     selected ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white hover:bg-slate-50'
                                 }`}
@@ -301,6 +307,7 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
                         <div className="text-xs font-semibold text-slate-600">Tools</div>
                     </div>
                     <button
+                        type="button"
                         className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                         onClick={refreshTools}
                     >
@@ -341,7 +348,7 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
                 {icon}
                 {title}
             </div>
-            <div className="mt-2 text-sm text-slate-500">Tools is mocked in this phase. Resources/Prompts can be wired to real MCP later.</div>
+            <div className="mt-2 text-sm text-slate-500">Not implemented in this phase.</div>
         </div>
     );
 
@@ -352,11 +359,11 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
                 <div className="text-xs font-semibold text-slate-600">Notifications</div>
             </div>
             <div className="max-h-[560px] overflow-auto p-3">
-                {logs.length === 0 ? (
+                {controller.logs.length === 0 ? (
                     <div className="p-6 text-center text-sm text-slate-400">No notifications</div>
                 ) : (
                     <div className="space-y-2">
-                        {logs.map((item, idx) => (
+                        {controller.logs.map((item, idx) => (
                             <div
                                 key={`${item.ts}-${idx}`}
                                 className={`rounded-lg border px-3 py-2 text-sm ${
@@ -391,32 +398,33 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
                             <Boxes className="h-4 w-4" />
                         </div>
                         <div>
-                            <div className="text-sm font-semibold text-slate-900">MCP Inspector（Mock）</div>
+                            <div className="text-sm font-semibold text-slate-900">MCP Inspector</div>
                             <div className="mt-0.5 text-xs text-slate-500">Server connection / Tools / Resources / Prompts / Notifications</div>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button className={tabClass('connection')} onClick={() => setTab('connection')}>
+                        <button type="button" className={tabClass('connection')} onClick={() => setTab('connection')}>
                             <Cable className="h-4 w-4" />
                             Connection
                         </button>
-                        <button className={tabClass('tools')} onClick={() => setTab('tools')}>
+                        <button type="button" className={tabClass('tools')} onClick={() => setTab('tools')}>
                             <Boxes className="h-4 w-4" />
                             Tools
                         </button>
-                        <button className={tabClass('resources')} onClick={() => setTab('resources')}>
+                        <button type="button" className={tabClass('resources')} onClick={() => setTab('resources')}>
                             <FileText className="h-4 w-4" />
                             Resources
                         </button>
-                        <button className={tabClass('prompts')} onClick={() => setTab('prompts')}>
+                        <button type="button" className={tabClass('prompts')} onClick={() => setTab('prompts')}>
                             <Terminal className="h-4 w-4" />
                             Prompts
                         </button>
-                        <button className={tabClass('notifications')} onClick={() => setTab('notifications')}>
+                        <button type="button" className={tabClass('notifications')} onClick={() => setTab('notifications')}>
                             <Database className="h-4 w-4" />
                             Notifications
                         </button>
                         <button
+                            type="button"
                             className="ml-1 rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                             onClick={close}
                             title="Close"

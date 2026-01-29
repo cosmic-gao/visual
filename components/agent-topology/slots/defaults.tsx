@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Clock, Edit, Trash2, Wrench, Users, Zap, Copy, Plus, X, FileText, Link2 } from 'lucide-react';
 import type {
     TriggerNodeData,
@@ -12,11 +12,11 @@ import type {
     SkillItem,
     SlotFunction
 } from '../types';
-import type { McpTool } from '../mcp-service/types';
-import { createToolKey } from '../mcp-service/export';
-import { useMcpState } from '../mcp-service/state';
-import { McpServiceDialog } from '../mcp-service/service';
-import { McpToolDialog } from '../mcp-service/picker';
+import type { McpTool } from '../../mcp-service/types';
+import { createToolKey } from '../../mcp-service/export';
+import { useMcpController } from '../../mcp-service/state';
+import { McpServiceDialog } from '../../mcp-service/service';
+import { McpToolDialog } from '../../mcp-service/picker';
 import { useTopology } from '../context';
 import {
     badgeClassName,
@@ -90,16 +90,7 @@ export const defaultToolboxHeader: SlotFunction<ToolboxNodeData> = ({ data, node
 
 function ToolboxHeader({ data, nodeId }: { data: ToolboxNodeData; nodeId: string }) {
     const { updateNodeData } = useTopology();
-    const initialServers = useMemo(
-        () =>
-            data.mcpEnabled
-                ? [
-                      { name: 'Agent Builder', url: 'https://example.com' },
-                  ]
-                : [],
-        [data.mcpEnabled]
-    );
-    const state = useMcpState(initialServers);
+    const controller = useMcpController();
     const [isServiceOpen, setIsServiceOpen] = useState(false);
     const [isToolOpen, setIsToolOpen] = useState(false);
 
@@ -129,7 +120,7 @@ function ToolboxHeader({ data, nodeId }: { data: ToolboxNodeData; nodeId: string
             };
         });
 
-        state.clearSelection();
+        controller.clearSelection();
         setIsToolOpen(false);
     };
 
@@ -164,11 +155,11 @@ function ToolboxHeader({ data, nodeId }: { data: ToolboxNodeData; nodeId: string
                 )}
             </div>
 
-            <McpServiceDialog open={isServiceOpen} onOpenChange={setIsServiceOpen} state={state} />
+            <McpServiceDialog open={isServiceOpen} onOpenChange={setIsServiceOpen} controller={controller} />
             <McpToolDialog
                 open={isToolOpen}
                 onOpenChange={setIsToolOpen}
-                state={state}
+                controller={controller}
                 onAdd={(tools) => addTools(tools)}
             />
         </div>

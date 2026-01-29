@@ -3,12 +3,12 @@ import { createPortal } from 'react-dom';
 import { AlertCircle, Boxes, Check, Copy, Database, Download, Loader2, RefreshCw, Search, X } from 'lucide-react';
 import type { McpConfig, McpTool } from './types';
 import { createConfig, createToolKey, normalizeUrl } from './export';
-import type { McpState } from './state';
+import type { McpController } from './state';
 
 interface McpToolDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    state: McpState;
+    controller: McpController;
     onAdd: (tools: McpTool[], config: McpConfig) => void;
 }
 
@@ -23,7 +23,7 @@ function downloadJson(name: string, data: unknown) {
     URL.revokeObjectURL(url);
 }
 
-export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialogProps) {
+export function McpToolDialog({ open, onOpenChange, controller, onAdd }: McpToolDialogProps) {
     const [tab, setTab] = useState<'tools' | 'export' | 'notifications'>('tools');
     const [message, setMessage] = useState<string | null>(null);
     const [search, setSearch] = useState('');
@@ -31,20 +31,20 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
 
     const config = useMemo(() => {
         try {
-            return createConfig(state.selectedTools);
+            return createConfig(controller.selectedTools);
         } catch {
             return null;
         }
-    }, [state.selectedTools]);
+    }, [controller.selectedTools]);
 
-    const activeUrl = state.activeUrl ? normalizeUrl(state.activeUrl) : '';
+    const activeUrl = controller.activeUrl ? normalizeUrl(controller.activeUrl) : '';
     const activeServer = useMemo(() => {
         if (!activeUrl) return null;
-        return state.servers.find((s) => normalizeUrl(s.url) === activeUrl) ?? null;
-    }, [activeUrl, state.servers]);
-    const activeTools = activeUrl ? state.toolsByUrl[activeUrl] ?? [] : [];
-    const activeLoading = activeUrl ? state.toolLoadingByUrl[activeUrl] : false;
-    const activeError = activeUrl ? state.toolErrorByUrl[activeUrl] : undefined;
+        return controller.servers.find((s) => normalizeUrl(s.url) === activeUrl) ?? null;
+    }, [activeUrl, controller.servers]);
+    const activeTools = activeUrl ? controller.toolsByUrl[activeUrl] ?? [] : [];
+    const activeLoading = activeUrl ? controller.toolLoadingByUrl[activeUrl] : false;
+    const activeError = activeUrl ? controller.toolErrorByUrl[activeUrl] : undefined;
 
     const close = () => {
         setMessage(null);
@@ -93,7 +93,7 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
             setMessage('Select tools first');
             return;
         }
-        onAdd(state.selectedTools, config);
+        onAdd(controller.selectedTools, config);
         setMessage('Added to Toolbox');
     };
 
@@ -103,7 +103,7 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
             return;
         }
         try {
-            await state.fetchTools(activeServer);
+            await controller.fetchTools(activeServer);
         } catch {
             setTab('notifications');
         }
@@ -183,19 +183,20 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button className={tabClass('tools')} onClick={() => setTab('tools')}>
+                        <button type="button" className={tabClass('tools')} onClick={() => setTab('tools')}>
                             <Boxes className="h-4 w-4" />
                             Tools
                         </button>
-                        <button className={tabClass('export')} onClick={() => setTab('export')}>
+                        <button type="button" className={tabClass('export')} onClick={() => setTab('export')}>
                             <Download className="h-4 w-4" />
                             Export
                         </button>
-                        <button className={tabClass('notifications')} onClick={() => setTab('notifications')}>
+                        <button type="button" className={tabClass('notifications')} onClick={() => setTab('notifications')}>
                             <Database className="h-4 w-4" />
                             Notifications
                         </button>
                         <button
+                            type="button"
                             className="ml-1 rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                             onClick={close}
                             title="Close"
@@ -213,25 +214,26 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                                     <div className="text-xs font-semibold text-slate-600">Servers</div>
                                 </div>
                                 <div className="max-h-[520px] overflow-auto p-2">
-                                    {state.servers.length === 0 ? (
+                                    {controller.servers.length === 0 ? (
                                         <div className="p-6 text-center text-sm text-slate-400">Configure MCP servers first</div>
                                     ) : (
                                         <div className="space-y-2">
-                                            {state.servers.map((server) => {
+                                            {controller.servers.map((server) => {
                                                 const url = normalizeUrl(server.url);
                                                 const selected = url === activeUrl;
-                                                const count = (state.toolsByUrl[url] ?? []).length;
-                                                const loading = state.toolLoadingByUrl[url];
-                                                const err = state.toolErrorByUrl[url];
+                                                const count = (controller.toolsByUrl[url] ?? []).length;
+                                                const loading = controller.toolLoadingByUrl[url];
+                                                const err = controller.toolErrorByUrl[url];
                                                 return (
                                                     <button
                                                         key={url}
+                                                        type="button"
                                                         className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
                                                             selected
                                                                 ? 'border-slate-900 bg-slate-900 text-white'
                                                                 : 'border-slate-200 bg-white hover:bg-slate-50'
                                                         }`}
-                                                        onClick={() => state.setActiveUrl(url)}
+                                                        onClick={() => controller.setActiveUrl(url)}
                                                     >
                                                         <div className="truncate text-sm font-semibold">{server.name}</div>
                                                         <div className={`truncate text-xs ${selected ? 'text-slate-200' : 'text-slate-500'}`}>{url}</div>
@@ -253,6 +255,7 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                                         <div className="text-xs font-semibold text-slate-600">Tools</div>
                                     </div>
                                     <button
+                                        type="button"
                                         className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                                         onClick={refresh}
                                     >
@@ -289,7 +292,7 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                                             <div className="mt-3 space-y-2 max-h-[430px] overflow-auto pr-1">
                                                 {filteredTools.map((tool) => {
                                                     const key = createToolKey(tool);
-                                                    const checked = state.selectedKeys.has(key);
+                                                    const checked = controller.selectedKeys.has(key);
                                                     const focused = key === focusedKey;
                                                     return (
                                                         <div
@@ -299,18 +302,14 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                                                             }`}
                                                             onClick={() => setFocusedKey(key)}
                                                         >
-                                                            <button
-                                                                type="button"
-                                                                className="min-w-0 flex-1 text-left"
-                                                                onClick={() => setFocusedKey(key)}
-                                                            >
+                                                            <button type="button" className="min-w-0 flex-1 text-left">
                                                                 <div className="truncate text-sm font-medium text-slate-800">{tool.display_name || tool.name}</div>
                                                                 <div className="truncate text-xs text-slate-500">{tool.name}</div>
                                                             </button>
                                                             <input
                                                                 type="checkbox"
                                                                 checked={checked}
-                                                                onChange={() => state.toggleTool(tool)}
+                                                                onChange={() => controller.toggleTool(tool)}
                                                                 onClick={(e) => e.stopPropagation()}
                                                                 className="h-4 w-4 accent-slate-900"
                                                             />
@@ -385,7 +384,7 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                                 </div>
 
                                 <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
-                                    <div className="text-sm font-medium text-slate-800">Selected: {state.selectedTools.length}</div>
+                                    <div className="text-sm font-medium text-slate-800">Selected: {controller.selectedTools.length}</div>
                                     <div className="flex items-center gap-2">
                                         <button
                                             type="button"
@@ -416,6 +415,7 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                                     <div className="text-xs font-semibold text-slate-600">MCP JSON</div>
                                     <div className="flex items-center gap-2">
                                         <button
+                                            type="button"
                                             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                                             onClick={copy}
                                         >
@@ -423,6 +423,7 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                                             Copy
                                         </button>
                                         <button
+                                            type="button"
                                             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                                             onClick={download}
                                         >
@@ -444,12 +445,15 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                                 <div className="text-xs font-semibold text-slate-600">Actions</div>
                                 <div className="mt-3 space-y-2">
                                     <button
-                                        className="w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                                        type="button"
+                                        className="w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
                                         onClick={add}
+                                        disabled={!config}
                                     >
                                         Add to Toolbox
                                     </button>
                                     <button
+                                        type="button"
                                         className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                                         onClick={() => setTab('tools')}
                                     >
@@ -480,11 +484,11 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                                 <div className="text-xs font-semibold text-slate-600">Notifications</div>
                             </div>
                             <div className="max-h-[560px] overflow-auto p-3">
-                                {state.logs.length === 0 ? (
+                                {controller.logs.length === 0 ? (
                                     <div className="p-6 text-center text-sm text-slate-400">No notifications</div>
                                 ) : (
                                     <div className="space-y-2">
-                                        {state.logs.map((item, idx) => (
+                                        {controller.logs.map((item, idx) => (
                                             <div
                                                 key={`${item.ts}-${idx}`}
                                                 className={`rounded-lg border px-3 py-2 text-sm ${
@@ -516,3 +520,4 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
 
     return createPortal(view, document.body);
 }
+
