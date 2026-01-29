@@ -93,6 +93,11 @@ export function ToolboxNode({ id, type, data, selected }: ToolboxNodeProps) {
         );
     }
 
+    const [expanded, setExpanded] = React.useState(false);
+    const DISPLAY_LIMIT = 5;
+    const visibleTools = expanded ? tools : tools.slice(0, DISPLAY_LIMIT);
+    const hasMore = tools.length > DISPLAY_LIMIT;
+
     // Normal state
     return (
         <BaseNode
@@ -109,22 +114,35 @@ export function ToolboxNode({ id, type, data, selected }: ToolboxNodeProps) {
                 slotProps={{ data, nodeId: id, nodeType: 'TOOLBOX' }}
             />
 
-            <div className="px-2 py-2 space-y-1 max-h-[220px] overflow-auto pr-1">
+            <div className="px-2 py-2 space-y-1 max-h-[320px] overflow-auto pr-1">
                 {tools.length > 0 ? (
-                    tools.map((tool, index) => (
-                        <SlotRenderer
-                            key={tool.id}
-                            slotName="toolbox.item"
-                            customSlots={customSlots}
-                            defaultSlot={defaultToolboxItem}
-                            slotProps={{
-                                data: tool,
-                                nodeId: id,
-                                nodeType: 'TOOLBOX',
-                                index
-                            }}
-                        />
-                    ))
+                    <>
+                        {visibleTools.map((tool, index) => (
+                            <SlotRenderer
+                                key={tool.id}
+                                slotName="toolbox.item"
+                                customSlots={customSlots}
+                                defaultSlot={defaultToolboxItem}
+                                slotProps={{
+                                    data: tool,
+                                    nodeId: id,
+                                    nodeType: 'TOOLBOX',
+                                    index
+                                }}
+                            />
+                        ))}
+                        {hasMore && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setExpanded(!expanded);
+                                }}
+                                className="w-full text-center text-xs text-slate-500 hover:text-slate-700 py-1"
+                            >
+                                {expanded ? 'Show less' : `Show ${tools.length - DISPLAY_LIMIT} more...`}
+                            </button>
+                        )}
+                    </>
                 ) : (
                     <SlotRenderer
                         slotName="toolbox.empty"

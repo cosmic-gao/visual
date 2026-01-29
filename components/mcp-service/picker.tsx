@@ -53,8 +53,7 @@ export function ToolDialog({ open, onOpenChange, controller, onAdd }: ToolDialog
     };
 
     const tabClass = (value: typeof tab) =>
-        `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
-            tab === value ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
+        `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${tab === value ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
         }`;
 
     const copy = async () => {
@@ -166,13 +165,13 @@ export function ToolDialog({ open, onOpenChange, controller, onAdd }: ToolDialog
     }
 
     const view = (
-        <div className="fixed inset-0 z-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/40" onClick={close} />
             <div
-                className="absolute left-1/2 top-1/2 w-[1120px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-slate-200 bg-white shadow-2xl"
+                className="relative flex flex-col w-[1120px] max-w-full h-[85vh] rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+                <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white">
                             <Boxes className="h-4 w-4" />
@@ -206,14 +205,14 @@ export function ToolDialog({ open, onOpenChange, controller, onAdd }: ToolDialog
                     </div>
                 </div>
 
-                <div className="p-5">
+                <div className="flex-1 overflow-hidden p-5">
                     {tab === 'tools' ? (
-                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr]">
-                            <div className="rounded-xl border border-slate-200 bg-white">
-                                <div className="border-b border-slate-200 px-4 py-3">
+                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr] h-full">
+                            <div className="flex flex-col rounded-xl border border-slate-200 bg-white overflow-hidden">
+                                <div className="border-b border-slate-200 px-4 py-3 shrink-0">
                                     <div className="text-xs font-semibold text-slate-600">Servers</div>
                                 </div>
-                                <div className="max-h-[520px] overflow-auto p-2">
+                                <div className="flex-1 overflow-auto p-2">
                                     {controller.servers.length === 0 ? (
                                         <div className="p-6 text-center text-sm text-slate-400">Configure MCP servers first</div>
                                     ) : (
@@ -228,11 +227,10 @@ export function ToolDialog({ open, onOpenChange, controller, onAdd }: ToolDialog
                                                     <button
                                                         key={url}
                                                         type="button"
-                                                        className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
-                                                            selected
+                                                        className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${selected
                                                                 ? 'border-slate-900 bg-slate-900 text-white'
                                                                 : 'border-slate-200 bg-white hover:bg-slate-50'
-                                                        }`}
+                                                            }`}
                                                         onClick={() => controller.setActiveUrl(url)}
                                                     >
                                                         <div className="truncate text-sm font-semibold">{server.name}</div>
@@ -248,8 +246,8 @@ export function ToolDialog({ open, onOpenChange, controller, onAdd }: ToolDialog
                                 </div>
                             </div>
 
-                            <div className="rounded-xl border border-slate-200 bg-white">
-                                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                            <div className="flex flex-col rounded-xl border border-slate-200 bg-white overflow-hidden">
+                                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 shrink-0">
                                     <div className="flex items-center gap-2">
                                         <Boxes className="h-4 w-4 text-slate-500" />
                                         <div className="text-xs font-semibold text-slate-600">Tools</div>
@@ -264,9 +262,9 @@ export function ToolDialog({ open, onOpenChange, controller, onAdd }: ToolDialog
                                     </button>
                                 </div>
 
-                                <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[1fr_360px]">
-                                    <div className="min-w-0">
-                                        <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
+                                <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[1fr_360px] flex-1 overflow-hidden min-h-0">
+                                    <div className="flex flex-col min-w-0 h-full">
+                                        <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 shrink-0">
                                             <Search className="h-4 w-4 text-slate-400" />
                                             <input
                                                 value={search}
@@ -289,7 +287,7 @@ export function ToolDialog({ open, onOpenChange, controller, onAdd }: ToolDialog
                                                 No tools (click Refresh)
                                             </div>
                                         ) : (
-                                            <div className="mt-3 space-y-2 max-h-[430px] overflow-auto pr-1">
+                                            <div className="mt-3 space-y-2 flex-1 overflow-auto pr-1">
                                                 {filteredTools.map((tool) => {
                                                     const key = createToolKey(tool);
                                                     const checked = controller.selectedKeys.has(key);
@@ -297,9 +295,8 @@ export function ToolDialog({ open, onOpenChange, controller, onAdd }: ToolDialog
                                                     return (
                                                         <div
                                                             key={key}
-                                                            className={`flex items-center justify-between rounded-lg border px-3 py-2 transition-colors ${
-                                                                focused ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:bg-slate-50'
-                                                            }`}
+                                                            className={`flex items-center justify-between rounded-lg border px-3 py-2 transition-colors ${focused ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:bg-slate-50'
+                                                                }`}
                                                             onClick={() => setFocusedKey(key)}
                                                         >
                                                             <button type="button" className="min-w-0 flex-1 text-left">
@@ -320,8 +317,8 @@ export function ToolDialog({ open, onOpenChange, controller, onAdd }: ToolDialog
                                         )}
                                     </div>
 
-                                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                                        <div className="flex items-center justify-between">
+                                    <div className="flex flex-col rounded-xl border border-slate-200 bg-slate-50 p-4 overflow-hidden h-full">
+                                        <div className="flex items-center justify-between shrink-0">
                                             <div className="text-xs font-semibold text-slate-600">Tool details</div>
                                             {focusedTool ? (
                                                 <button
@@ -340,7 +337,7 @@ export function ToolDialog({ open, onOpenChange, controller, onAdd }: ToolDialog
                                         {!focusedTool ? (
                                             <div className="mt-2 text-sm text-slate-500">Select a tool to view details</div>
                                         ) : (
-                                            <div className="mt-3 space-y-2 text-sm max-h-[520px] overflow-auto pr-1">
+                                            <div className="mt-3 space-y-2 text-sm flex-1 overflow-auto pr-1">
                                                 <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
                                                     <div className="text-xs text-slate-500">Display name</div>
                                                     <div className="truncate font-medium text-slate-800">{focusedTool.display_name || focusedTool.name}</div>
@@ -374,7 +371,7 @@ export function ToolDialog({ open, onOpenChange, controller, onAdd }: ToolDialog
                                                             </button>
                                                         ) : null}
                                                     </div>
-                                                    <pre className="mt-2 max-h-[220px] overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs leading-5 text-slate-700">
+                                                    <pre className="mt-2 flex-1 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs leading-5 text-slate-700 min-h-[100px]">
                                                         {safeSchema ?? '{ }'}
                                                     </pre>
                                                 </div>
@@ -383,7 +380,7 @@ export function ToolDialog({ open, onOpenChange, controller, onAdd }: ToolDialog
                                     </div>
                                 </div>
 
-                                <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
+                                <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 shrink-0">
                                     <div className="text-sm font-medium text-slate-800">Selected: {controller.selectedTools.length}</div>
                                     <div className="flex items-center gap-2">
                                         <button
@@ -491,11 +488,10 @@ export function ToolDialog({ open, onOpenChange, controller, onAdd }: ToolDialog
                                         {controller.logs.map((item, idx) => (
                                             <div
                                                 key={`${item.ts}-${idx}`}
-                                                className={`rounded-lg border px-3 py-2 text-sm ${
-                                                    item.level === 'error'
+                                                className={`rounded-lg border px-3 py-2 text-sm ${item.level === 'error'
                                                         ? 'border-rose-200 bg-rose-50 text-rose-700'
                                                         : 'border-slate-200 bg-white text-slate-700'
-                                                }`}
+                                                    }`}
                                             >
                                                 <div className="flex items-center justify-between gap-3">
                                                     <div className="truncate font-medium">{item.message}</div>

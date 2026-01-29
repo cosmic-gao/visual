@@ -84,18 +84,9 @@ function readHeaders(input: unknown): Record<string, string> | undefined {
 
 function buildUrl(server: McpServer) {
   const base = new URL(normalizeServer(server.url));
-  if (base.hostname === "server.smithery.ai") {
-    const path = base.pathname.replace(/\/$/, "");
-    if (!path.endsWith("/mcp")) {
-      base.pathname = `${path}/mcp`;
-    }
-    if (server.config !== undefined) {
-      base.searchParams.set("config", JSON.stringify(server.config));
-    }
-    const token = readBearer(server.headers);
-    if (token) {
-      base.searchParams.set("api_key", token);
-    }
+  // Config is appended as query parameter if provided
+  if (server.config !== undefined) {
+    base.searchParams.set("config", JSON.stringify(server.config));
   }
   return base;
 }
@@ -162,6 +153,11 @@ async function fetchTimed(url: string, init: RequestInit, timeoutMs: number) {
 async function listTools(server: McpServer): Promise<McpTool[]> {
   const url = buildUrl(server);
   const headers = buildHeaders(server);
+
+  console.log("[DEBUG] listTools", {
+    url: url.toString(),
+    headers: headers ? Object.keys(headers) : [],
+  });
 
   const listSdk = async () => {
     const client = new Client({ name: "visual-agent-mcp-proxy", version: "0.0.0" });
