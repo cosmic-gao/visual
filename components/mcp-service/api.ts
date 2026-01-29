@@ -1,6 +1,10 @@
 import type { McpServer, McpTool } from "./types";
 import { $fetch } from "@mspbots/fetch";
 
+type ApiOk<T> = { ok: true; data: T };
+type ApiFail = { ok: false; message: string };
+type ApiRes<T> = ApiOk<T> | ApiFail;
+
 async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
     const response = await $fetch(url, {
         ...options,
@@ -10,14 +14,14 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
         },
     });
 
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const message = (errorData as any)?.message ||
-            `HTTP error! status: ${response.status}`;
-        throw new Error(message);
+    const body = (await response.json().catch(() => null)) as ApiRes<T> | null;
+    if (!body) {
+        throw new Error("Empty response");
     }
-
-    return (await response.json()) as T;
+    if (body.ok === false) {
+        throw new Error(body.message || "Request failed");
+    }
+    return body.data;
 }
 
 export async function listServers(): Promise<McpServer[]> {
@@ -37,7 +41,8 @@ export async function updateServer(
         nextUrl?: string;
         name?: string;
         transport?: McpServer["transport"];
-        apiKey?: string;
+        headers?: McpServer["headers"];
+        config?: McpServer["config"];
     },
 ): Promise<McpServer> {
     return request<McpServer>("/api/mcp/servers", {
@@ -54,7 +59,7 @@ export async function deleteServer(url: string): Promise<{ ok: boolean }> {
 }
 
 export async function listTools(
-    server: Pick<McpServer, 'url' | 'name' | 'apiKey'>,
+    server: Pick<McpServer, "url" | "name" | "headers" | "config">,
 ): Promise<McpTool[]> {
     const result = await request<{ tools: McpTool[] }>(
         "/api/mcp/tools",
@@ -63,7 +68,8 @@ export async function listTools(
             body: JSON.stringify({
                 url: server.url,
                 name: server.name,
-                apiKey: server.apiKey,
+                headers: server.headers,
+                config: server.config,
             }),
         }
     );

@@ -92,7 +92,8 @@ export function useMcpController(): McpController {
                 nextUrl,
                 name: next.name,
                 transport: next.transport,
-                apiKey: next.apiKey,
+                headers: next.headers,
+                config: next.config,
             });
             const normalized = { ...updated, url: normalizeUrl(updated.url) };
 

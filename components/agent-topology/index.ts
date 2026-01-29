@@ -34,24 +34,3 @@ export type {
 } from './types';
 
 export { create, validate, normalize } from './utils/validator';
-
-// MCP Adapter exports
-export {
-    adaptMcpTool,
-    adaptMcpToolsToTopology,
-    groupToolsByServer,
-    createToolboxFromMcp,
-    mergeWithMcpTools,
-} from './adapters';
-
-export type {
-    McpTool,
-    McpServer,
-    McpToolItem,
-    McpToolAdapterOptions,
-    McpToolboxNodeData,
-} from './adapters';
-
-// Hooks exports
-export { useMcpTopology } from './hooks';
-export type { UseMcpTopologyOptions, UseMcpTopologyResult } from './hooks';

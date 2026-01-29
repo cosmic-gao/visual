@@ -9,7 +9,6 @@ interface McpServer {
   name: string;
   url: string;
   transport?: McpTransport;
-  apiKey?: string;
   config?: unknown;
   headers?: Record<string, string>;
 }
@@ -23,31 +22,9 @@ interface McpTool {
   input_schema?: unknown;
 }
 
-const serversByUrl = new Map<string, McpServer>();
+const servers = new Map<string, McpServer>();
 
-// No pre-configured servers - users add them through the UI with their own API keys
-
-function readOrigin(params: HandlerParams) {
-  try {
-    return new URL((params as any)?.requestUrl ?? "").origin;
-  } catch {
-    const headers = ((params as any)?.headers ?? {}) as Record<string, string>;
-    const host = readString(headers["host"]);
-    const proto = readString(headers["x-forwarded-proto"]) || "http";
-    if (!host) return "";
-    return `${proto}://${host}`;
-  }
-}
-
-function ensureTestServer(params: HandlerParams) {
-  const origin = readOrigin(params);
-  if (!origin) return;
-  const url = new URL("/api/mcp-test", origin).toString();
-  if (serversByUrl.has(url)) return;
-  serversByUrl.set(url, { name: "Test MCP", url, transport: "streamable-http" });
-}
-
-function normalizeServerUrl(url: string) {
+function normalizeServer(url: string) {
   const value = normalizeUrl(url);
   try {
     const u = new URL(value);
@@ -65,7 +42,7 @@ function normalizeUrl(url: string) {
   return value.endsWith("/") ? value.slice(0, -1) : value;
 }
 
-function isHttpUrl(url: string) {
+function isHttp(url: string) {
   try {
     const u = new URL(url);
     return u.protocol === "http:" || u.protocol === "https:";
@@ -74,9 +51,12 @@ function isHttpUrl(url: string) {
   }
 }
 
-function json(data: unknown, _status = 200) {
-  // mspbots runtime expects plain data objects, not Response objects
-  return data;
+function ok<T>(data: T) {
+  return { ok: true as const, data };
+}
+
+function fail(message: string) {
+  return { ok: false as const, message };
 }
 
 function readString(input: unknown) {
@@ -102,8 +82,8 @@ function readHeaders(input: unknown): Record<string, string> | undefined {
   return Object.keys(headers).length ? headers : undefined;
 }
 
-function createEndpoint(server: McpServer) {
-  const base = new URL(normalizeServerUrl(server.url));
+function buildUrl(server: McpServer) {
+  const base = new URL(normalizeServer(server.url));
   if (base.hostname === "server.smithery.ai") {
     const path = base.pathname.replace(/\/$/, "");
     if (!path.endsWith("/mcp")) {
@@ -112,22 +92,16 @@ function createEndpoint(server: McpServer) {
     if (server.config !== undefined) {
       base.searchParams.set("config", JSON.stringify(server.config));
     }
-    // Smithery requires API key as query parameter
-    if (server.apiKey) {
-      base.searchParams.set("api_key", server.apiKey);
+    const token = readBearer(server.headers);
+    if (token) {
+      base.searchParams.set("api_key", token);
     }
   }
   return base;
 }
 
-function createRequestHeaders(server: McpServer) {
+function buildHeaders(server: McpServer) {
   const headers: Record<string, string> = { ...(server.headers ?? {}) };
-  if (server.apiKey) {
-    const hasAuthorization = Object.keys(headers).some((key) => key.toLowerCase() === "authorization");
-    if (!hasAuthorization) {
-      headers["Authorization"] = `Bearer ${server.apiKey}`;
-    }
-  }
   return Object.keys(headers).length ? headers : undefined;
 }
 
@@ -139,12 +113,24 @@ function appendPath(url: URL, suffix: string) {
   return next;
 }
 
-function parseToolsPayload(payload: any) {
+function parseTools(payload: any) {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload.tools)) return payload.tools;
   if (payload.result && Array.isArray(payload.result.tools)) return payload.result.tools;
   return [];
+}
+
+function readBearer(headers?: Record<string, string>) {
+  if (!headers) return "";
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() !== "authorization") continue;
+    const text = readString(value).trim();
+    if (!text) return "";
+    const match = text.match(/^Bearer\s+(.+)$/i);
+    return readString(match?.[1]).trim();
+  }
+  return "";
 }
 
 function mapTool(raw: any, server: McpServer): McpTool | null {
@@ -163,37 +149,30 @@ function mapTool(raw: any, server: McpServer): McpTool | null {
   };
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
+async function fetchTimed(url: string, init: RequestInit, timeoutMs: number) {
   const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } finally {
-    clearTimeout(id);
+    clearTimeout(timer);
   }
 }
 
-async function listToolsFromServer(server: McpServer): Promise<McpTool[]> {
-  const url = createEndpoint(server);
-  const requestHeaders = createRequestHeaders(server);
+async function listTools(server: McpServer): Promise<McpTool[]> {
+  const url = buildUrl(server);
+  const headers = buildHeaders(server);
 
-  console.log("[DEBUG] listToolsFromServer", {
-    inputUrl: server.url,
-    endpointUrl: url.toString(),
-    hasApiKey: !!server.apiKey,
-    headers: requestHeaders ? Object.keys(requestHeaders) : [],
-  });
-
-  const listViaSdk = async () => {
+  const listSdk = async () => {
     const client = new Client({ name: "visual-agent-mcp-proxy", version: "0.0.0" });
     try {
       const transport = new StreamableHTTPClientTransport(url, {
-        requestInit: requestHeaders ? { headers: requestHeaders } : undefined,
+        requestInit: headers ? { headers } : undefined,
       });
       await client.connect(transport as any);
-      const result = await client.request({ method: "tools/list" } as any, ListToolsResultSchema as any);
-      const rawTools = (result as any)?.tools ?? [];
-      return rawTools.map((raw: any) => mapTool(raw, server)).filter(Boolean) as McpTool[];
+      const res = await client.request({ method: "tools/list" } as any, ListToolsResultSchema as any);
+      const items = (res as any)?.tools ?? [];
+      return items.map((raw: any) => mapTool(raw, server)).filter(Boolean) as McpTool[];
     } finally {
       try {
         await client.close();
@@ -202,192 +181,132 @@ async function listToolsFromServer(server: McpServer): Promise<McpTool[]> {
     }
   };
 
-  try {
-    return await listViaSdk();
-  } catch {
-    const toolsListUrl = appendPath(url, "tools/list").toString();
+  const listGet = async () => {
+    const link = appendPath(url, "tools/list").toString();
+    const res = await fetchTimed(
+      link,
+      {
+        method: "GET",
+        headers: {
+          ...(headers ?? {}),
+          accept: "application/json",
+        },
+      },
+      8000
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const body = await res.json().catch(() => null);
+    const items = parseTools(body);
+    return items.map((raw: any) => mapTool(raw, server)).filter(Boolean) as McpTool[];
+  };
+
+  const listRpc = async () => {
+    const res = await fetchTimed(
+      url.toString(),
+      {
+        method: "POST",
+        headers: {
+          ...(headers ?? {}),
+          "content-type": "application/json",
+          accept: "application/json",
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/list",
+          params: {},
+        }),
+      },
+      8000
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const body = await res.json().catch(() => null);
+    const items = parseTools(body);
+    return items.map((raw: any) => mapTool(raw, server)).filter(Boolean) as McpTool[];
+  };
+
+  const steps = [listSdk, listGet, listRpc];
+  let last: unknown = null;
+  for (const step of steps) {
     try {
-      const res = await fetchWithTimeout(
-        toolsListUrl,
-        {
-          method: "GET",
-          headers: {
-            ...(requestHeaders ?? {}),
-            accept: "application/json",
-          },
-        },
-        8000
-      );
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const payload = await res.json().catch(() => null);
-      const rawTools = parseToolsPayload(payload);
-      return rawTools.map((t: any) => mapTool(t, server)).filter(Boolean) as McpTool[];
-    } catch {
-      const res = await fetchWithTimeout(
-        url.toString(),
-        {
-          method: "POST",
-          headers: {
-            ...(requestHeaders ?? {}),
-            "content-type": "application/json",
-            accept: "application/json",
-          },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: 1,
-            method: "tools/list",
-            params: {},
-          }),
-        },
-        8000
-      );
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const payload = await res.json().catch(() => null);
-      const rawTools = parseToolsPayload(payload);
-      return rawTools.map((t: any) => mapTool(t, server)).filter(Boolean) as McpTool[];
+      return await step();
+    } catch (e) {
+      last = e;
     }
   }
-}
-
-function createTextContent(text: string) {
-  return {
-    content: [
-      {
-        type: "text",
-        text,
-      },
-    ],
-  };
-}
-
-function readNumber(input: unknown) {
-  if (typeof input === "number" && Number.isFinite(input)) return input;
-  if (typeof input === "string") {
-    const value = Number(input);
-    if (Number.isFinite(value)) return value;
-  }
-  return 0;
-}
-
-function listTestTools() {
-  return [
-    {
-      name: "echo",
-      display_name: "echo",
-      description: "Return the input text.",
-      input_schema: {
-        type: "object",
-        properties: {
-          text: { type: "string" },
-        },
-        required: ["text"],
-      },
-    },
-    {
-      name: "add",
-      display_name: "add",
-      description: "Add two numbers.",
-      input_schema: {
-        type: "object",
-        properties: {
-          a: { type: "number" },
-          b: { type: "number" },
-        },
-        required: ["a", "b"],
-      },
-    },
-  ];
-}
-
-function callTestTool(name: string, args: any) {
-  if (name === "echo") {
-    return createTextContent(readString(args?.text));
-  }
-  if (name === "add") {
-    const a = readNumber(args?.a);
-    const b = readNumber(args?.b);
-    return createTextContent(String(a + b));
-  }
-  return createTextContent(`Unknown tool: ${name}`);
+  const message = last instanceof Error ? last.message : "Request failed";
+  throw new Error(message);
 }
 
 const routes = {
   "GET /api/mcp/servers"(params: HandlerParams) {
-    ensureTestServer(params);
-    return json(Array.from(serversByUrl.values()));
+    return ok(Array.from(servers.values()));
   },
 
   "POST /api/mcp/servers"(params: HandlerParams) {
     const body = (params as any).body ?? {};
     const name = readString(body.name).trim();
-    const url = normalizeServerUrl(readString(body.url));
+    const url = normalizeServer(readString(body.url));
     const transport = readTransport(body.transport);
-    const apiKey = readString(body.apiKey).trim() || undefined;
     const config = body.config;
     const headers = readHeaders(body.headers);
 
     if (!name) {
-      return json({ message: "Server name is required" }, 400);
+      return fail("Server name is required");
     }
     if (!url) {
-      return json({ message: "Server URL is required" }, 400);
+      return fail("Server URL is required");
     }
-    if (!isHttpUrl(url)) {
-      return json({ message: "Server URL must be http/https" }, 400);
+    if (!isHttp(url)) {
+      return fail("Server URL must be http/https");
     }
-    if (serversByUrl.has(url)) {
-      return json({ message: "MCP server URL must be unique" }, 409);
+    if (servers.has(url)) {
+      return fail("MCP server URL must be unique");
     }
 
-    const server: McpServer = { name, url, transport, apiKey, config, headers };
-    serversByUrl.set(url, server);
-    return json(server, 201);
+    const server: McpServer = { name, url, transport, config, headers };
+    servers.set(url, server);
+    return ok(server);
   },
 
   "PUT /api/mcp/servers"(params: HandlerParams) {
     const body = (params as any).body ?? {};
-    const url = normalizeServerUrl(readString(body.url));
-    const nextUrl = normalizeServerUrl(readString(body.nextUrl || body.newUrl || body.next_url));
+    const url = normalizeServer(readString(body.url));
+    const nextUrl = normalizeServer(readString(body.nextUrl || body.newUrl || body.next_url));
     const name = readString(body.name).trim();
     const transport = readTransport(body.transport);
-    const apiKey = readString(body.apiKey).trim() || undefined;
     const config = body.config;
     const headers = readHeaders(body.headers);
 
     if (!url) {
-      return json({ message: "url is required" }, 400);
+      return fail("url is required");
     }
-    const existing = serversByUrl.get(url);
+    const existing = servers.get(url);
     if (!existing) {
-      return json({ message: "Server not found" }, 404);
+      return fail("Server not found");
     }
 
     const finalUrl = nextUrl || url;
-    if (!isHttpUrl(finalUrl)) {
-      return json({ message: "Server URL must be http/https" }, 400);
+    if (!isHttp(finalUrl)) {
+      return fail("Server URL must be http/https");
     }
-    if (finalUrl !== url && serversByUrl.has(finalUrl)) {
-      return json({ message: "MCP server URL must be unique" }, 409);
+    if (finalUrl !== url && servers.has(finalUrl)) {
+      return fail("MCP server URL must be unique");
     }
     const next: McpServer = {
       name: name || existing.name,
       url: finalUrl,
       transport: transport ?? existing.transport,
-      apiKey: apiKey ?? existing.apiKey,
       config: config ?? existing.config,
       headers: headers ?? existing.headers,
     };
     if (finalUrl !== url) {
-      serversByUrl.delete(url);
-      serversByUrl.set(finalUrl, next);
+      servers.delete(url);
+      servers.set(finalUrl, next);
     } else {
-      serversByUrl.set(url, next);
+      servers.set(url, next);
     }
-    return json(next);
+    return ok(next);
   },
 
   "DELETE /api/mcp/servers"(params: HandlerParams) {
@@ -395,47 +314,45 @@ const routes = {
     const body = (params as any).body ?? {};
     const url = normalizeUrl(readString(query.url || body.url));
     if (!url) {
-      return json({ message: "url is required" }, 400);
+      return fail("url is required");
     }
-    const existed = serversByUrl.delete(url);
+    const existed = servers.delete(url);
     if (!existed) {
-      return json({ message: "Server not found" }, 404);
+      return fail("Server not found");
     }
-    return json({ ok: true });
+    return ok({ ok: true });
   },
 
   "POST /api/mcp/tools"(params: HandlerParams) {
     return (async () => {
-      ensureTestServer(params);
       const body = (params as any).body ?? {};
       // Use normalizeServerUrl to ensure consistent key lookup
-      const url = normalizeServerUrl(readString(body.url));
+      const url = normalizeServer(readString(body.url));
       if (!url) {
-        return json({ message: "url is required" }, 400);
+        return fail("url is required");
       }
-      if (!isHttpUrl(url)) {
-        return json({ message: "Server URL must be http/https" }, 400);
+      if (!isHttp(url)) {
+        return fail("Server URL must be http/https");
       }
 
-      const savedServer = serversByUrl.get(url);
-      // Use apiKey from request body first, fallback to saved server config
-      const apiKey = readString(body.apiKey).trim() || savedServer?.apiKey;
+      const saved = servers.get(url);
+      const headers = readHeaders(body.headers) ?? saved?.headers;
+      const config = body.config ?? saved?.config;
 
       const server: McpServer = {
-        name: readString(body.name).trim() || savedServer?.name || "MCP Server",
+        name: readString(body.name).trim() || saved?.name || "MCP Server",
         url,
-        transport: savedServer?.transport,
-        apiKey,
-        config: savedServer?.config,
-        headers: savedServer?.headers,
+        transport: saved?.transport,
+        config,
+        headers,
       };
 
       try {
-        const tools = await listToolsFromServer(server);
-        return json({ tools });
+        const tools = await listTools(server);
+        return ok({ tools });
       } catch (e) {
         const message = e instanceof Error ? e.message : "Request failed";
-        return json({ message, url }, 502);
+        return fail(message);
       }
     })();
   },
@@ -446,64 +363,35 @@ const routes = {
    */
   "GET /api/mcp/tools/all"(params: HandlerParams) {
     return (async () => {
-      ensureTestServer(params);
       const allTools: McpTool[] = [];
       const errors: { url: string; message: string }[] = [];
 
-      // Query all servers in parallel
-      const results = await Promise.allSettled(
-        Array.from(serversByUrl.values()).map(async (server) => {
-          const tools = await listToolsFromServer(server);
-          return { server, tools };
+      const list = Array.from(servers.values());
+      const res = await Promise.all(
+        list.map(async (server) => {
+          try {
+            const tools = await listTools(server);
+            return { server, tools, err: "" };
+          } catch (e) {
+            const err = e instanceof Error ? e.message : "Request failed";
+            return { server, tools: [] as McpTool[], err };
+          }
         })
       );
 
-      for (const result of results) {
-        if (result.status === "fulfilled") {
-          allTools.push(...result.value.tools);
-        } else {
-          // Extract server URL from error context if available
-          const message = result.reason instanceof Error ? result.reason.message : "Request failed";
-          errors.push({ url: "unknown", message });
+      for (const item of res) {
+        allTools.push(...item.tools);
+        if (item.err) {
+          errors.push({ url: item.server.url, message: item.err });
         }
       }
 
-      return json({
+      return ok({
         tools: allTools,
-        errors: errors.length > 0 ? errors : undefined,
-        serverCount: serversByUrl.size,
+        errors: errors.length ? errors : undefined,
+        serverCount: servers.size,
       });
     })();
-  },
-
-  "GET /api/mcp-test/tools/list"() {
-    return json({ tools: listTestTools() });
-  },
-
-  "POST /api/mcp-test"(params: HandlerParams) {
-    const body = (params as any).body ?? {};
-    const id = body?.id ?? 1;
-    const method = readString(body?.method);
-    const rpcParams = body?.params ?? {};
-
-    if (method === "tools/list") {
-      return json({ jsonrpc: "2.0", id, result: { tools: listTestTools() } });
-    }
-
-    if (method === "tools/call") {
-      const name = readString(rpcParams?.name);
-      const args = rpcParams?.arguments ?? {};
-      return json({ jsonrpc: "2.0", id, result: callTestTool(name, args) });
-    }
-
-    return json(
-      {
-        jsonrpc: "2.0",
-        id,
-        error: { code: -32601, message: "Method not found" },
-      },
-      404
-    );
   },
 };
 

@@ -49,6 +49,7 @@ export interface ToolboxNodeData extends BaseNodeData {
     error?: string;
     /** List of connected MCP server URLs */
     mcpServers?: string[];
+    mcpConfig?: unknown;
 }
 
 export interface ToolItem {

@@ -1,21 +1,43 @@
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertCircle, Boxes, Cable, CheckCircle2, Database, FileText, Loader2, Plus, RefreshCw, Terminal, X } from 'lucide-react';
+import { AlertCircle, Boxes, Cable, CheckCircle2, Database, FileText, Loader2, Plus, RefreshCw, Terminal, Trash2, X } from 'lucide-react';
 import type { McpServer } from './types';
 import { normalizeUrl } from './export';
 import type { McpController } from './state';
 
-interface McpServiceDialogProps {
+interface McpDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     controller: McpController;
 }
 
-export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceDialogProps) {
+type HeaderRow = { key: string; value: string };
+
+function readRows(headers?: Record<string, string>): HeaderRow[] {
+    const rows = Object.entries(headers ?? {}).map(([key, value]) => ({ key, value }));
+    if (rows.length) {
+        return rows;
+    }
+    return [{ key: 'Authorization', value: 'Bearer ' }];
+}
+
+function readHeaders(rows: HeaderRow[]) {
+    const headers: Record<string, string> = {};
+    for (const row of rows) {
+        const key = row.key.trim();
+        const value = row.value.trim();
+        if (!key || !value) continue;
+        headers[key] = value;
+    }
+    return Object.keys(headers).length ? headers : undefined;
+}
+
+export function McpDialog({ open, onOpenChange, controller }: McpDialogProps) {
     const [tab, setTab] = useState<'connection' | 'tools' | 'resources' | 'prompts' | 'notifications'>('connection');
-    const [draftName, setDraftName] = useState('');
-    const [draftUrl, setDraftUrl] = useState('');
-    const [draftApiKey, setDraftApiKey] = useState('');
+    const [nameText, setNameText] = useState('');
+    const [urlText, setUrlText] = useState('');
+    const [headRows, setHeadRows] = useState<HeaderRow[]>(() => readRows());
+    const [confText, setConfText] = useState('');
     const [transport, setTransport] = useState<'streamable-http' | 'sse'>('streamable-http');
     const [error, setError] = useState<string | null>(null);
 
@@ -34,9 +56,10 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
 
     const close = () => {
         setTab('connection');
-        setDraftName('');
-        setDraftUrl('');
-        setDraftApiKey('');
+        setNameText('');
+        setUrlText('');
+        setHeadRows(readRows());
+        setConfText('');
         setTransport('streamable-http');
         setError(null);
         onOpenChange(false);
@@ -45,18 +68,20 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
     const selectServer = (server: McpServer) => {
         const nextUrl = normalizeUrl(server.url);
         controller.setActiveUrl(nextUrl);
-        setDraftName(server.name);
-        setDraftUrl(server.url);
-        setDraftApiKey(server.apiKey ?? '');
+        setNameText(server.name);
+        setUrlText(server.url);
+        setHeadRows(readRows(server.headers));
+        setConfText(server.config !== undefined ? JSON.stringify(server.config, null, 2) : '');
         setTransport(server.transport ?? 'streamable-http');
         setError(null);
     };
 
     const newServer = () => {
         controller.setActiveUrl(null);
-        setDraftName('Playwright MCP');
-        setDraftUrl('https://server.smithery.ai/@anthropics/mcp-server');
-        setDraftApiKey('');
+        setNameText('Playwright MCP');
+        setUrlText('https://server.smithery.ai/@enriquedlh97/playwright-mcp');
+        setHeadRows(readRows());
+        setConfText('');
         setTransport('streamable-http');
         setError(null);
     };
@@ -64,11 +89,23 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
     const save = async () => {
         setError(null);
 
+        let config: unknown = undefined;
+        const conf = confText.trim();
+        if (conf) {
+            try {
+                config = JSON.parse(conf);
+            } catch {
+                setError('Config must be valid JSON');
+                return;
+            }
+        }
+
         const next: McpServer = {
-            name: draftName.trim(),
-            url: draftUrl.trim(),
+            name: nameText.trim(),
+            url: urlText.trim(),
             transport,
-            apiKey: draftApiKey.trim() || undefined,
+            headers: readHeaders(headRows),
+            config,
         };
         if (!next.name) {
             setError('Server name is required');
@@ -96,9 +133,10 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
         setError(null);
         try {
             await controller.removeServer(activeServer.url);
-            setDraftName('');
-            setDraftUrl('');
-            setDraftApiKey('');
+            setNameText('');
+            setUrlText('');
+            setHeadRows(readRows());
+            setConfText('');
             setTransport('streamable-http');
             setTab('connection');
         } catch (e) {
@@ -210,8 +248,8 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
                         <div>
                             <div className="text-xs font-medium text-slate-600">Server name</div>
                             <input
-                                value={draftName}
-                                onChange={(e) => setDraftName(e.target.value)}
+                                value={nameText}
+                                onChange={(e) => setNameText(e.target.value)}
                                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400"
                                 placeholder="Playwright MCP"
                             />
@@ -223,26 +261,69 @@ export function McpServiceDialog({ open, onOpenChange, controller }: McpServiceD
                         <div className="mt-1 flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
                             <Terminal className="h-4 w-4 text-slate-400" />
                             <input
-                                value={draftUrl}
-                                onChange={(e) => setDraftUrl(e.target.value)}
+                                value={urlText}
+                                onChange={(e) => setUrlText(e.target.value)}
                                 className="w-full bg-transparent text-sm text-slate-800 outline-none"
-                                placeholder="https://server.smithery.ai/@anthropics/mcp-server"
+                                placeholder="https://server.smithery.ai/@enriquedlh97/playwright-mcp"
                             />
                         </div>
                         <div className="mt-1 text-xs text-slate-400">Enter MCP server URL (Smithery, remote, or local)</div>
                     </div>
 
                     <div>
-                        <div className="text-xs font-medium text-slate-600">API Key</div>
-                        <input
-                            value={draftApiKey}
-                            onChange={(e) => setDraftApiKey(e.target.value)}
-                            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400"
-                            placeholder="Optional"
-                            type="password"
-                            autoComplete="off"
+                        <div className="text-xs font-medium text-slate-600">Headers (optional)</div>
+                        <div className="mt-2 space-y-2">
+                            {headRows.map((row, idx) => (
+                                <div key={`${idx}-${row.key}`} className="flex items-center gap-2">
+                                    <input
+                                        value={row.key}
+                                        onChange={(e) => {
+                                            const value = e.target.value;
+                                            setHeadRows((list) => list.map((item, i) => (i === idx ? { ...item, key: value } : item)));
+                                        }}
+                                        className="w-[220px] rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400"
+                                        placeholder="Authorization"
+                                    />
+                                    <input
+                                        value={row.value}
+                                        onChange={(e) => {
+                                            const value = e.target.value;
+                                            setHeadRows((list) => list.map((item, i) => (i === idx ? { ...item, value } : item)));
+                                        }}
+                                        className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400"
+                                        placeholder="Bearer <token>"
+                                        autoComplete="off"
+                                    />
+                                    <button
+                                        type="button"
+                                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                                        onClick={() => setHeadRows((list) => list.filter((_, i) => i !== idx))}
+                                        title="Delete"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            ))}
+                            <button
+                                type="button"
+                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                                onClick={() => setHeadRows((list) => [...list, { key: '', value: '' }])}
+                            >
+                                Add header
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div className="text-xs font-medium text-slate-600">Config (optional)</div>
+                        <textarea
+                            value={confText}
+                            onChange={(e) => setConfText(e.target.value)}
+                            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-xs text-slate-800 outline-none focus:border-blue-400"
+                            placeholder="{ }"
+                            rows={6}
                         />
-                        <div className="mt-1 text-xs text-slate-400">Optional. Sent as Authorization Bearer token in headers.</div>
+                        <div className="mt-1 text-xs text-slate-400">JSON only. Empty means no config.</div>
                     </div>
 
                     {error ? (

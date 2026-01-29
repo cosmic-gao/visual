@@ -5,7 +5,7 @@ import type { McpConfig, McpTool } from './types';
 import { createConfig, createToolKey, normalizeUrl } from './export';
 import type { McpController } from './state';
 
-interface McpToolDialogProps {
+interface ToolDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     controller: McpController;
@@ -23,7 +23,7 @@ function downloadJson(name: string, data: unknown) {
     URL.revokeObjectURL(url);
 }
 
-export function McpToolDialog({ open, onOpenChange, controller, onAdd }: McpToolDialogProps) {
+export function ToolDialog({ open, onOpenChange, controller, onAdd }: ToolDialogProps) {
     const [tab, setTab] = useState<'tools' | 'export' | 'notifications'>('tools');
     const [message, setMessage] = useState<string | null>(null);
     const [search, setSearch] = useState('');
@@ -520,4 +520,3 @@ export function McpToolDialog({ open, onOpenChange, controller, onAdd }: McpTool
 
     return createPortal(view, document.body);
 }
-

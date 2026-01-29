@@ -12,11 +12,11 @@ import type {
     SkillItem,
     SlotFunction
 } from '../types';
-import type { McpTool } from '../../mcp-service/types';
+import type { McpConfig, McpTool } from '../../mcp-service/types';
 import { createToolKey } from '../../mcp-service/export';
 import { useMcpController } from '../../mcp-service/state';
-import { McpServiceDialog } from '../../mcp-service/service';
-import { McpToolDialog } from '../../mcp-service/picker';
+import { McpDialog } from '../../mcp-service/service';
+import { ToolDialog } from '../../mcp-service/picker';
 import { useTopology } from '../context';
 import {
     badgeClassName,
@@ -94,7 +94,7 @@ function ToolboxHeader({ data, nodeId }: { data: ToolboxNodeData; nodeId: string
     const [isServiceOpen, setIsServiceOpen] = useState(false);
     const [isToolOpen, setIsToolOpen] = useState(false);
 
-    const addTools = (tools: McpTool[]) => {
+    const addTools = (tools: McpTool[], config: McpConfig) => {
         updateNodeData(nodeId, (nodeData) => {
             const currentTools = ((nodeData as any)?.tools ?? []) as any[];
             const existingIds = new Set(currentTools.map((tool) => String(tool.id)));
@@ -110,6 +110,10 @@ function ToolboxHeader({ data, nodeId }: { data: ToolboxNodeData; nodeId: string
                     name: tool.display_name || tool.name,
                     source: tool.mcp_server_name,
                     status: 'active',
+                    mcp_server_name: tool.mcp_server_name,
+                    mcp_server_url: tool.mcp_server_url,
+                    description: tool.description,
+                    input_schema: tool.input_schema,
                 });
                 existingIds.add(id);
             }
@@ -117,6 +121,7 @@ function ToolboxHeader({ data, nodeId }: { data: ToolboxNodeData; nodeId: string
             return {
                 ...(nodeData as any),
                 tools: nextTools,
+                mcpConfig: config,
             };
         });
 
@@ -155,12 +160,12 @@ function ToolboxHeader({ data, nodeId }: { data: ToolboxNodeData; nodeId: string
                 )}
             </div>
 
-            <McpServiceDialog open={isServiceOpen} onOpenChange={setIsServiceOpen} controller={controller} />
-            <McpToolDialog
+            <McpDialog open={isServiceOpen} onOpenChange={setIsServiceOpen} controller={controller} />
+            <ToolDialog
                 open={isToolOpen}
                 onOpenChange={setIsToolOpen}
                 controller={controller}
-                onAdd={(tools) => addTools(tools)}
+                onAdd={(tools, config) => addTools(tools, config)}
             />
         </div>
     );
@@ -186,7 +191,7 @@ export const defaultToolboxItem: SlotFunction<ToolItem> = ({ data }) => {
 
     const getStatusText = (status: string) => {
         if (status === 'review') return 'Review Required';
-        if (status === 'missing_key') return 'API Key Missing';
+        if (status === 'missing_key') return 'Auth Missing';
         return status;
     };
 
