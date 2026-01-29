@@ -11,7 +11,7 @@ export async function listTools(server: McpServer): Promise<McpTool[]> {
     await sleep(300);
 
     if (url.includes('tools.langchain.com')) {
-        throw new Error('tools/list 不存在（404）');
+        throw new Error('tools/list not found (404)');
     }
 
     const common = {

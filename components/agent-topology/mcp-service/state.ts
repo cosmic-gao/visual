@@ -34,12 +34,12 @@ export function useMcpState(initialServers?: McpServer[]) {
     const addServer = useCallback((server: McpServer) => {
         const url = normalizeUrl(server.url);
         if (serverUrls.has(url)) {
-            throw new Error('MCP 服务 URL 必须唯一');
+            throw new Error('MCP server URL must be unique');
         }
         setServers((items) => [...items, { ...server, url }]);
         setActiveUrl((current) => current ?? url);
         setLogs((items) => [
-            { ts: new Date().toISOString(), level: 'info', message: `已新增服务：${server.name}`, serverUrl: url },
+            { ts: new Date().toISOString(), level: 'info', message: `Server added: ${server.name}`, serverUrl: url },
             ...items,
         ]);
     }, [serverUrls]);
@@ -48,7 +48,7 @@ export function useMcpState(initialServers?: McpServer[]) {
         const currentUrl = normalizeUrl(url);
         const nextUrl = normalizeUrl(next.url);
         if (currentUrl !== nextUrl && serverUrls.has(nextUrl)) {
-            throw new Error('MCP 服务 URL 必须唯一');
+            throw new Error('MCP server URL must be unique');
         }
 
         setServers((items) => items.map((item) => (normalizeUrl(item.url) === currentUrl ? { ...next, url: nextUrl } : item)));
@@ -83,7 +83,7 @@ export function useMcpState(initialServers?: McpServer[]) {
             return nextKeys;
         });
         setLogs((items) => [
-            { ts: new Date().toISOString(), level: 'info', message: `已更新服务：${next.name}`, serverUrl: nextUrl },
+            { ts: new Date().toISOString(), level: 'info', message: `Server updated: ${next.name}`, serverUrl: nextUrl },
             ...items,
         ]);
     }, [serverUrls]);
@@ -123,7 +123,7 @@ export function useMcpState(initialServers?: McpServer[]) {
             return next;
         });
         setLogs((items) => [
-            { ts: new Date().toISOString(), level: 'info', message: '已删除服务', serverUrl: currentUrl },
+            { ts: new Date().toISOString(), level: 'info', message: 'Server deleted', serverUrl: currentUrl },
             ...items,
         ]);
     }, []);
@@ -133,23 +133,23 @@ export function useMcpState(initialServers?: McpServer[]) {
         setToolLoadingByUrl((map) => ({ ...map, [url]: true }));
         setToolErrorByUrl((map) => ({ ...map, [url]: undefined }));
         setLogs((items) => [
-            { ts: new Date().toISOString(), level: 'info', message: '正在查询 tools/list', serverUrl: url },
+            { ts: new Date().toISOString(), level: 'info', message: 'Fetching tools/list', serverUrl: url },
             ...items,
         ]);
         try {
             const tools = await listTools({ ...server, url });
             setToolsByUrl((cache) => ({ ...cache, [url]: tools }));
             setLogs((items) => [
-                { ts: new Date().toISOString(), level: 'info', message: `已加载工具：${tools.length}`, serverUrl: url },
+                { ts: new Date().toISOString(), level: 'info', message: `Tools loaded: ${tools.length}`, serverUrl: url },
                 ...items,
             ]);
             return tools;
         } catch (error) {
-            const message = error instanceof Error ? error.message : '查询失败';
+            const message = error instanceof Error ? error.message : 'Request failed';
             setToolErrorByUrl((map) => ({ ...map, [url]: message }));
             setToolsByUrl((cache) => ({ ...cache, [url]: [] }));
             setLogs((items) => [
-                { ts: new Date().toISOString(), level: 'error', message: `tools/list 查询失败：${message}`, serverUrl: url },
+                { ts: new Date().toISOString(), level: 'error', message: `tools/list failed: ${message}`, serverUrl: url },
                 ...items,
             ]);
             throw error;

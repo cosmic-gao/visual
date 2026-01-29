@@ -6,7 +6,6 @@ import {
     MiniMap,
     useNodesState,
     useEdgesState,
-    applyNodeChanges,
     Position,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -82,9 +81,9 @@ export function AgentTopology({
         }));
 
         if (validatedConfig.layout?.type === 'auto') {
-            return layout(nodes, validatedConfig.layout);
+            return adjust(layout(nodes, validatedConfig.layout) as any) as any;
         }
-        return nodes;
+        return adjust(nodes as any) as any;
     }, [validatedConfig, slots]);
 
     const styledEdges = useMemo(() => {
@@ -109,28 +108,8 @@ export function AgentTopology({
         });
     }, [layoutedNodes, validatedConfig.edges]);
 
-    const [nodes, setNodes] = useNodesState(layoutedNodes);
+    const [nodes, setNodes, onNodesChange] = useNodesState(layoutedNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(styledEdges);
-
-    const onNodesChange = useCallback(
-        (changes: any[]) => {
-            setNodes((currentNodes) => {
-                const nextNodes = applyNodeChanges(changes, currentNodes) as any[];
-                const dragEndIds = new Set(
-                    changes
-                        .filter((change) => change.type === 'position' && change.dragging === false)
-                        .map((change) => String(change.id))
-                );
-
-                if (dragEndIds.size === 0) {
-                    return nextNodes;
-                }
-
-                return adjust(nextNodes as any, undefined, dragEndIds) as any;
-            });
-        },
-        [setNodes]
-    );
 
     useEffect(() => {
         setNodes(layoutedNodes);

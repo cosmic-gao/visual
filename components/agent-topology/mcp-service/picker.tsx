@@ -59,14 +59,14 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
 
     const copy = async () => {
         if (!config) {
-            setMessage('请选择工具');
+            setMessage('Select tools first');
             return;
         }
         try {
             await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
-            setMessage('已复制');
+            setMessage('Copied');
         } catch {
-            setMessage('复制失败');
+            setMessage('Copy failed');
         }
     };
 
@@ -75,31 +75,31 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
             await navigator.clipboard.writeText(text);
             setMessage(okMessage);
         } catch {
-            setMessage('复制失败');
+            setMessage('Copy failed');
         }
     };
 
     const download = () => {
         if (!config) {
-            setMessage('请选择工具');
+            setMessage('Select tools first');
             return;
         }
         downloadJson('mcp-config.json', config);
-        setMessage('已下载');
+        setMessage('Downloaded');
     };
 
     const add = () => {
         if (!config) {
-            setMessage('请选择工具');
+            setMessage('Select tools first');
             return;
         }
         onAdd(state.selectedTools, config);
-        setMessage('已添加到 Toolbox');
+        setMessage('Added to Toolbox');
     };
 
     const refresh = async () => {
         if (!activeServer) {
-            setMessage('请先选择服务');
+            setMessage('Select a server first');
             return;
         }
         try {
@@ -179,7 +179,7 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                         </div>
                         <div>
                             <div className="text-sm font-semibold text-slate-900">Tools</div>
-                            <div className="mt-0.5 text-xs text-slate-500">参考 MCP Inspector：选择工具并导出配置</div>
+                            <div className="mt-0.5 text-xs text-slate-500">Inspired by MCP Inspector: select tools and export config</div>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -214,7 +214,7 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                                 </div>
                                 <div className="max-h-[520px] overflow-auto p-2">
                                     {state.servers.length === 0 ? (
-                                        <div className="p-6 text-center text-sm text-slate-400">请先点击 MCP 配置服务</div>
+                                        <div className="p-6 text-center text-sm text-slate-400">Configure MCP servers first</div>
                                     ) : (
                                         <div className="space-y-2">
                                             {state.servers.map((server) => {
@@ -275,7 +275,7 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
 
                                         {!activeServer ? (
                                             <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
-                                                请选择服务
+                                                Select a server
                                             </div>
                                         ) : activeError ? (
                                             <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
@@ -283,7 +283,7 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                                             </div>
                                         ) : activeTools.length === 0 ? (
                                             <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
-                                                暂无工具（请点击 Refresh）
+                                                No tools (click Refresh)
                                             </div>
                                         ) : (
                                             <div className="mt-3 space-y-2 max-h-[430px] overflow-auto pr-1">
@@ -330,7 +330,7 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                                                     className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                                                     onClick={() => {
                                                         if (!safeToolJson) return;
-                                                        copyText(safeToolJson, '详情已复制');
+                                                        copyText(safeToolJson, 'Details copied');
                                                     }}
                                                 >
                                                     <Copy className="h-3.5 w-3.5" />
@@ -339,7 +339,7 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                                             ) : null}
                                         </div>
                                         {!focusedTool ? (
-                                            <div className="mt-2 text-sm text-slate-500">选择一个工具查看详情</div>
+                                            <div className="mt-2 text-sm text-slate-500">Select a tool to view details</div>
                                         ) : (
                                             <div className="mt-3 space-y-2 text-sm max-h-[520px] overflow-auto pr-1">
                                                 <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
@@ -368,7 +368,7 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                                                             <button
                                                                 type="button"
                                                                 className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                                                                onClick={() => copyText(safeSchema, 'Schema 已复制')}
+                                                                onClick={() => copyText(safeSchema, 'Schema copied')}
                                                             >
                                                                 <Copy className="h-3.5 w-3.5" />
                                                                 Copy
@@ -385,7 +385,7 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                                 </div>
 
                                 <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
-                                    <div className="text-sm font-medium text-slate-800">已选工具：{state.selectedTools.length}</div>
+                                    <div className="text-sm font-medium text-slate-800">Selected: {state.selectedTools.length}</div>
                                     <div className="flex items-center gap-2">
                                         <button
                                             type="button"
@@ -434,7 +434,7 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                                 <div className="p-4">
                                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                                         <pre className="max-h-[520px] overflow-auto text-xs leading-5 text-slate-700">
-                                            {config ? JSON.stringify(config, null, 2) : '请选择工具以生成 JSON'}
+                                            {config ? JSON.stringify(config, null, 2) : 'Select tools to generate JSON'}
                                         </pre>
                                     </div>
                                 </div>
@@ -465,7 +465,7 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                                     <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                                         <div className="flex items-center gap-2">
                                             <AlertCircle className="h-4 w-4" />
-                                            需要至少选择一个工具
+                                            Select at least one tool
                                         </div>
                                     </div>
                                 ) : null}
@@ -481,7 +481,7 @@ export function McpToolDialog({ open, onOpenChange, state, onAdd }: McpToolDialo
                             </div>
                             <div className="max-h-[560px] overflow-auto p-3">
                                 {state.logs.length === 0 ? (
-                                    <div className="p-6 text-center text-sm text-slate-400">暂无日志</div>
+                                    <div className="p-6 text-center text-sm text-slate-400">No notifications</div>
                                 ) : (
                                     <div className="space-y-2">
                                         {state.logs.map((item, idx) => (

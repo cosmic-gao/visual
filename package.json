@@ -41,6 +41,7 @@
     "permissions": {
       "kv": true,
       "read": true,
+      "net": true,
       "imports": [
         "@mspbots/runtime",
         "@mspbots/type"

@@ -61,11 +61,11 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
         setError(null);
         const next: McpServer = { name: draftName.trim(), url: draftUrl.trim() };
         if (!next.name) {
-            setError('服务名称不能为空');
+            setError('Server name is required');
             return;
         }
         if (!next.url) {
-            setError('服务 URL 不能为空');
+            setError('Server URL is required');
             return;
         }
 
@@ -79,7 +79,7 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
                 setTab('connection');
             }
         } catch (e) {
-            const message = e instanceof Error ? e.message : '保存失败';
+            const message = e instanceof Error ? e.message : 'Save failed';
             setError(message);
         }
     };
@@ -95,14 +95,14 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
     const refreshTools = async () => {
         setError(null);
         if (!activeServer) {
-            setError('请先选择服务');
+            setError('Select a server first');
             return;
         }
         try {
             await state.fetchTools(activeServer);
             setTab('tools');
         } catch (e) {
-            const message = e instanceof Error ? e.message : '查询失败';
+            const message = e instanceof Error ? e.message : 'Request failed';
             setError(message);
         }
     };
@@ -127,7 +127,7 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
                 </div>
                 <div className="max-h-[520px] overflow-auto p-2">
                     {state.servers.length === 0 ? (
-                        <div className="p-6 text-center text-sm text-slate-400">暂无服务</div>
+                        <div className="p-6 text-center text-sm text-slate-400">No servers</div>
                     ) : (
                         <div className="space-y-2">
                             {state.servers.map((server) => {
@@ -173,7 +173,7 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
             <div className="rounded-xl border border-slate-200 bg-white">
                 <div className="border-b border-slate-200 px-4 py-3">
                     <div className="text-xs font-semibold text-slate-600">Server connection</div>
-                    <div className="mt-1 text-xs text-slate-500">参考 MCP Inspector：配置连接并查看 Tools/Resources/Prompts</div>
+                    <div className="mt-1 text-xs text-slate-500">Inspired by MCP Inspector: configure connection and inspect Tools/Resources/Prompts</div>
                 </div>
                 <div className="space-y-4 p-4">
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -212,7 +212,7 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
                                 placeholder="https://example.com"
                             />
                         </div>
-                        <div className="mt-1 text-xs text-slate-400">URL 必须唯一；当前阶段 tools/list 使用假数据模拟</div>
+                        <div className="mt-1 text-xs text-slate-400">URL must be unique. tools/list is mocked in this phase.</div>
                     </div>
 
                     {error ? (
@@ -310,11 +310,11 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
                 </div>
                 <div className="p-4">
                     {!activeServer ? (
-                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">请先选择服务</div>
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">Select a server first</div>
                     ) : activeError ? (
                         <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{activeError}</div>
                     ) : activeTools.length === 0 ? (
-                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">暂无工具（请点击 Refresh）</div>
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">No tools (click Refresh)</div>
                     ) : (
                         <div className="space-y-2">
                             {activeTools.map((tool) => (
@@ -341,7 +341,7 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
                 {icon}
                 {title}
             </div>
-            <div className="mt-2 text-sm text-slate-500">当前阶段仅实现 Tools（假数据）；Resources/Prompts 后续可接入真实 MCP。</div>
+            <div className="mt-2 text-sm text-slate-500">Tools is mocked in this phase. Resources/Prompts can be wired to real MCP later.</div>
         </div>
     );
 
@@ -353,7 +353,7 @@ export function McpServiceDialog({ open, onOpenChange, state }: McpServiceDialog
             </div>
             <div className="max-h-[560px] overflow-auto p-3">
                 {logs.length === 0 ? (
-                    <div className="p-6 text-center text-sm text-slate-400">暂无日志</div>
+                    <div className="p-6 text-center text-sm text-slate-400">No notifications</div>
                 ) : (
                     <div className="space-y-2">
                         {logs.map((item, idx) => (

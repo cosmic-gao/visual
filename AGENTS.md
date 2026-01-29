@@ -1,156 +1,85 @@
-# MSPBots React Template
+# 代码与命名规范
 
-This is a full-stack React template for the MSPBots platform.
+## 一、设计原则
+- 模块化设计，高内聚、低耦合
+- 采用微内核架构，核心稳定、能力可插拔
+- 逻辑抽象优先，禁止重复代码
+- 设计模式为解决问题服务，避免过度设计
 
+---
 
-It includes:
+## 二、模块与结构
+- 模块按业务或职责拆分
+- 模块只通过接口通信，禁止跨层调用
+- 核心模块不依赖业务扩展模块
+- 公共能力统一下沉复用
 
-- Frontend: React + TypeScript + Tailwind CSS + `@mspbots/ui`
-- Backend: Deno runtime (`service/`) + REST APIs
-- Platform integration: routing, layout, auth redirect, micro-frontend bridge
+---
 
-This document is an operator manual for LLMs working inside a project created from this template.
+## 三、命名规范（强制）
 
-## Golden Rules (for LLMs)
+### 1. 基本规则
+- 非必要始终 1 个单词，最多 2 个单词
+- 尽可能使用完整英文单词
+- 命名需做到见名知意
+- 超过 2 个单词必须重新抽象
 
-1. Always follow the target package’s README before using its API.
-2. Do not invent APIs, props, config fields, or file locations.
-3. Frontend API calls must use `$fetch` / `@mspbots/fetch` (no raw `fetch()` unless a package README requires it).
-4. Never log or expose the token string. Use `window.useAccess()` only for roles/payload debugging.
-5. Route/menu permissions should be implemented with page `meta` (`menu` / `route`) first, and only then with element-level gating (`<Permission />`).
+### 2. 禁止规则
+- 禁止缩写、拼音、个人习惯命名
+- 禁止无语义名称：`data`、`info`、`temp`、`obj`
+- 禁止行为模糊词：`handle`、`process`、`do`
 
-## Project Structure
+### 3. 具体约定
+- 类 / 模块：名词（PascalCase）
+  - `User`、`OrderService`
+- 方法 / 函数：动词 或 动词 + 名词（camelCase）
+  - `createOrder`、`validateToken`
+- 变量：名词（camelCase）
+  - `user`、`orderList`
+- 常量：全大写 + 下划线
+  - `MAX_RETRY_COUNT`
+- 布尔值：肯定语义
+  - `isValid`、`hasPermission`
 
-```
-.
-├── pages/                 Frontend pages (EDITABLE)
-├── service/               Backend directory (EDITABLE)
-│   ├── deno.json          Backend imports & permissions
-│   └── server.ts          API routes
-├── mspbot.config.ts       App/system config
-└── package.json           Frontend dependencies & scripts
-```
+---
 
-## Quick Start
+## 四、代码约束
+- 单一职责，一个函数只做一件事
+- 函数不超过 50 行
+- 嵌套层级不超过 3 层
+- 边界与异常必须显式处理
+- 严格的安全类型检查，禁止类型转换错误
 
-Install dependencies:
+---
 
-- `pnpm install`
+## 五、评审标准
+代码必须满足：
+- 命名不需注释即可理解
+- 可扩展而无需修改核心逻辑
+- 可复用而非复制
+- 新代码强制遵循本规范
 
-Frontend:
+---
 
-- Edit `pages/Home.tsx` as a reference.
-- Add new pages under `pages/` (routing is automatic).
+## 六、核心方法注释（强制）
 
-Backend:
+### 1. 定义
+核心方法包括但不限于：
+- 对外暴露的公共 API（export 的函数/类方法）
+- 模块边界入口方法（适配层入口、服务入口、命令入口、解析入口等）
+- 关键业务规则/关键算法实现方法
+- 有副作用的方法（I/O、网络、存储、文件系统、环境读写）
 
-- Add API routes in `service/server.ts`.
-- Add backend dependencies with Deno:
-  - `cd service && deno add npm:<package>`
+### 2. 要求
+- 核心方法必须编写符合 JSDoc 规范的注释
+- 注释必须说明：方法意图、关键约束、边界条件、失败模式
+- 必须完整标注类型与契约：
+  - `@param`：每个参数都要写清含义与约束
+  - `@returns`：返回值含义与约束
+  - `@throws`：可能抛出的错误与触发条件（若有）
+  - `@example`：对外 API 建议提供至少 1 个可运行的调用示例
 
-Development:
+---
 
-- `pnpm dev`
-- `pnpm build`
+> 命名即设计，规范即边界
 
-Notes:
-
-- `pnpm dev` will also run `predev` (`cd service && deno install`) to prepare the backend runtime.
-
-## Frontend: Routing, Menus, Permissions
-
-### 1) File-based routing (`pages/`)
-
-Routing is generated from file paths:
-
-- `pages/Home.tsx` → `/`
-- `pages/User/List.tsx` → `/user/list`
-- `pages/User/[id].tsx` → `/user/:id`
-
-### 2) Page meta (the primary API)
-
-Each page can export a `meta` object to control label/icon/order, menu visibility, and route access:
-
-```tsx
-export const meta = {
-  label: 'Admin',
-  icon: 'Settings',
-  order: 10,
-  menu: ['admin'],   // show in menu only if role matches
-  route: ['admin'],  // allow visiting only if role matches
-}
-```
-
-- `menu`: controls whether the page appears in navigation
-- `route`: controls whether the route is accessible (otherwise redirects to `/403`)
-
-### 3) Element-level gating with `<Permission />`
-
-For smaller UI fragments inside a page, use `Permission` from `@mspbots/ui`:
-
-```tsx
-import { Button, Permission } from '@mspbots/ui'
-
-<Permission roles={['admin']} fallback={null}>
-  <Button>Admin Action</Button>
-</Permission>
-```
-
-`Permission` reads roles from `window.useAccess?.()` (injected by `@mspbots/system`).
-
-## Auth Redirect (no/invalid token → login)
-
-This template can redirect to a login page when the token is missing or invalid:
-
-- Config: `system.auth.enabled = true` and `system.auth.loginPath = '/apps/mb-platform-user/login'`
-- Behavior: `window.location.href = loginPath`
-- Loop prevention:
-  - If already on `loginPath` (or its sub-path), it will not redirect again
-  - Uses `sessionStorage['__mspbots_auth_redirect__']` to avoid repeating the same redirect within a session
-
-## Backend: Adding APIs
-
-Add new REST endpoints in `service/server.ts`. Keep handlers small, type-safe, and return stable JSON.
-
-Frontend should call backend via `$fetch` (injected globally by system) or by importing from `@mspbots/fetch` as required.
-
-## Core Packages You Must Read (before coding)
-
-This template relies on several core packages. Always read their README before using them.
-
-Docs location in a generated project:
-
-- Frontend packages: `node_modules/<pkg>/README.md`
-- Backend (Deno) packages: `service/node_modules/<pkg>/README.md` (after `pnpm dev` / `deno install`)
-
-| Package | Scope | When to use it | Readme path |
-| :--- | :--- | :--- | :--- |
-| `@mspbots/routes` | Frontend (build) | When you add/rename pages under `pages/`, want menus, or need page-level role gating via `meta.menu` / `meta.route`. | `node_modules/@mspbots/routes/README.md` |
-| `@mspbots/system` | Build + runtime inject | When you need system-level behavior: app title/icon, theme/layout, 403 handling, global `$fetch`, `window.useAccess()`, or auth redirect (`system.auth`). | `node_modules/@mspbots/system/README.md` |
-| `@mspbots/react` | Build | When you need to change the build pipeline for the template. In most cases, you only configure it in `mspbot.config.ts` and let it aggregate everything. | `node_modules/@mspbots/react/README.md` |
-| `@mspbots/ui` | Frontend | When you build UI pages: buttons/forms/dialogs/tables, and element-level permission gating with `<Permission />`. | `node_modules/@mspbots/ui/README.md` |
-| `@mspbots/fetch` | Frontend | Whenever the frontend calls backend APIs. Prefer `$fetch` (injected) or import from this package per its README. | `node_modules/@mspbots/fetch/README.md` |
-| `@mspbots/layout` | Frontend | When you customize the app shell (sidebar/header), navigation rendering, or layout behavior beyond `system.layout` config. | `node_modules/@mspbots/layout/README.md` |
-| `@mspbots/bridge` | Frontend | When integrating micro-frontends: token/context sync, events, or host/sub-app communication. | `node_modules/@mspbots/bridge/README.md` |
-| `@mspbots/type` | Frontend/shared | When you need shared types (page nodes, handler params, platform types) across UI and server logic. | `node_modules/@mspbots/type/README.md` |
-| `@mspbots/runtime` | Backend (Deno) | When implementing backend routes in `service/server.ts`, enforcing security boundaries, accessing runtime helpers/services. | `service/node_modules/@mspbots/runtime/README.md` |
-
-## Optional Tools (examples)
-
-These are optional backend-side tools. Only install them when the feature is required, and always follow each package README after installing.
-
-| Package | When to use it (backend) |
-| :--- | :--- |
-| `@tools/langchain-sdk` | When you need LLM calls, agents, tool execution, prompt pipelines, or RAG workflows. |
-| `@tools/database` | When you need persistent storage (e.g., Postgres/MySQL) instead of in-memory data. |
-| `@tools/common` | When you need shared utilities/resources or MSPBots common integrations provided by the platform. |
-
-Install with Deno when needed:
-
-- `cd service && deno add npm:@tools/langchain-sdk`
-- `cd service && deno add npm:@tools/database`
-- `cd service && deno add npm:@tools/common`
-
-## License
-
-MIT
