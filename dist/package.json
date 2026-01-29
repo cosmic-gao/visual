@@ -1,0 +1,23 @@
+{
+  "name": "@app/visual-agent",
+  "version": "0.1.0",
+  "description": "MSPBots React full-stack template with modern UI components and micro-frontend support",
+  "type": "module",
+  "files": [
+    "**/*"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "mspbots",
+    "template",
+    "react",
+    "fullstack",
+    "typescript",
+    "micro-frontend",
+    "wujie"
+  ],
+  "publishConfig": {
+    "registry": "https://npm.mspbots.ai/",
+    "access": "public"
+  }
+}

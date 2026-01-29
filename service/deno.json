@@ -1,0 +1,14 @@
+{
+  "nodeModulesDir": "auto",
+  "npmRegistry": "https://npm.mspbots.ai/",
+  "imports": {
+    "@mspbots/runtime": "npm:@mspbots/runtime@^82.0.0"
+  },
+  "include": [
+    "schema.ts",
+    "server.ts"
+  ],
+  "exclude": [
+    "../pages/**/*"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "version": "5",
+  "specifiers": {
+    "npm:@mspbots/runtime@*": "82.0.0",
+    "npm:@mspbots/runtime@82": "82.0.0",
+    "npm:hono@*": "4.11.7",
+    "npm:pathe@*": "2.0.3"
+  },
+  "npm": {
+    "@mspbots/runtime@82.0.0": {
+      "integrity": "sha512-7BURxgige5Mbz4MaF3mC6t8nMfj2xjZawQRb3AFzBJR8aH3MhKXHKywfJj+wsS2/irwAua1Upoux/4T+2FdE0g==",
+      "tarball": "https://npm.mspbots.ai/@mspbots/runtime/-/runtime-82.0.0.tgz"
+    },
+    "hono@4.11.7": {
+      "integrity": "sha512-l7qMiNee7t82bH3SeyUCt9UF15EVmaBvsppY2zQtrbIhl/yzBTny+YUxsVjSjQ6gaqaeVtZmGocom8TzBlA4Yw==",
+      "tarball": "https://npm.mspbots.ai/hono/-/hono-4.11.7.tgz"
+    },
+    "pathe@2.0.3": {
+      "integrity": "sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==",
+      "tarball": "https://npm.mspbots.ai/pathe/-/pathe-2.0.3.tgz"
+    }
+  },
+  "workspace": {
+    "dependencies": [
+      "npm:@mspbots/runtime@82"
+    ]
+  }
+}

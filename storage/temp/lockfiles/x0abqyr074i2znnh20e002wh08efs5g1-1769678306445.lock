@@ -1,0 +1,10 @@
+{
+  "version": "3",
+  "packages": {
+    "specifiers": {
+      "@mspbots/runtime": "npm:@mspbots/runtime@^82.0.0"
+    }
+  },
+  "remote": {},
+  "npm": {}
+}

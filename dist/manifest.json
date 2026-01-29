@@ -1,0 +1,27 @@
+{
+  "id": "x0abqyr074i2znnh20e002wh08efs5g1",
+  "name": "visual-agent",
+  "version": "0.0.0",
+  "description": "MSPBots React full-stack template with modern UI components and micro-frontend support",
+  "icon": "📦",
+  "hasBackend": true,
+  "permissions": {
+    "kv": true,
+    "read": true,
+    "imports": [
+      "@mspbots/runtime",
+      "@mspbots/type"
+    ]
+  },
+  "pages": [
+    {
+      "path": "/",
+      "name": "Topology",
+      "label": "Topology",
+      "icon": "Home",
+      "order": 1,
+      "page": true,
+      "menu": true
+    }
+  ]
+}
